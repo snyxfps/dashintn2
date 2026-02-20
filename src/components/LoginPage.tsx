@@ -86,20 +86,33 @@ export const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex gap-8">
-          {[
-            { label: 'Serviços', value: '5' },
-            { label: 'Operação', value: 'Tempo real' },
-            { label: 'Status', value: '6' },
-          ].map((item) => (
-            <div key={item.label}>
-              <div className="text-3xl font-bold" style={{ color: 'hsl(213 90% 65%)' }}>
-                {item.value}
-              </div>
-              <div className="text-xs opacity-60 mt-0.5">{item.label}</div>
-            </div>
-          ))}
-        </div>
+        <div className="grid grid-cols-3 gap-4 max-w-md">
+  {[
+    { label: 'Serviços', value: '5' },
+    { label: 'Monitoramento', value: 'Tempo real' },
+    { label: 'Status', value: '6' },
+  ].map((item) => (
+    <div
+      key={item.label}
+      className="rounded-2xl px-4 py-3 transition-all duration-200 hover:scale-[1.03]"
+      style={{
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <div
+        className="text-2xl font-bold leading-none"
+        style={{ color: 'hsl(213 90% 65%)' }}
+      >
+        {item.value}
+      </div>
+      <div className="text-xs opacity-70 mt-1 tracking-wide">
+        {item.label}
+      </div>
+    </div>
+  ))}
+</div>
       </div>
 
       {/* Right Panel */}
