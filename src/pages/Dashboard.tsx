@@ -112,14 +112,7 @@ export default function DashboardPage() {
         onMenuClick={onMenuClick}
         searchValue={search}
         onSearchChange={setSearch}
-        actions={
-          records.length === 0 ? (
-            <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${seeding ? 'animate-spin' : ''}`} />
-              {seeding ? 'Carregando...' : 'Carregar dados demo'}
-            </Button>
-          ) : null
-        }
+        actions={null}
       />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
