@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Corporate Blue Design System */
+    --background: 220 20% 97%;
+    --foreground: 220 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 12%;
+
+    /* Primary: Deep Corporate Blue */
+    --primary: 222 75% 28%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Medium Blue */
+    --secondary: 213 60% 92%;
+    --secondary-foreground: 222 75% 28%;
+
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 50%;
+
+    --accent: 213 55% 88%;
+    --accent-foreground: 222 75% 28%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 222 75% 28%;
+
+    --radius: 0.625rem;
+
+    /* Status Colors */
+    --status-novo: 220 10% 60%;
+    --status-novo-bg: 220 10% 94%;
+    --status-reuniao: 258 70% 60%;
+    --status-reuniao-bg: 258 70% 95%;
+    --status-andamento: 213 90% 48%;
+    --status-andamento-bg: 213 90% 93%;
+    --status-finalizado: 142 65% 42%;
+    --status-finalizado-bg: 142 65% 93%;
+    --status-cancelado: 0 72% 51%;
+    --status-cancelado-bg: 0 72% 94%;
+    --status-devolvido: 32 95% 50%;
+    --status-devolvido-bg: 32 95% 93%;
+
+    /* Sidebar */
+    --sidebar-bg: 222 75% 18%;
+    --sidebar-fg: 220 30% 88%;
+    --sidebar-active: 213 90% 55%;
+    --sidebar-hover: 222 60% 25%;
+    --sidebar-border: 222 50% 25%;
+
+    /* Shadows */
+    --shadow-card: 0 2px 8px -2px hsl(220 30% 12% / 0.08), 0 1px 3px hsl(220 30% 12% / 0.05);
+    --shadow-elevated: 0 8px 24px -4px hsl(222 75% 28% / 0.15), 0 2px 8px hsl(220 30% 12% / 0.06);
+
+    /* Sidebar shadcn tokens */
+    --sidebar-background: 222 75% 18%;
+    --sidebar-foreground: 220 30% 88%;
+    --sidebar-primary: 213 90% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 60% 25%;
+    --sidebar-accent-foreground: 220 30% 95%;
+    --sidebar-border: 222 50% 25%;
+    --sidebar-ring: 213 90% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* Status Badge Variants */
+  .status-novo {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
+    color: hsl(var(--status-novo));
+    background-color: hsl(var(--status-novo-bg));
+  }
+  .status-reuniao {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
+    color: hsl(var(--status-reuniao));
+    background-color: hsl(var(--status-reuniao-bg));
+  }
+  .status-andamento {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
+    color: hsl(var(--status-andamento));
+    background-color: hsl(var(--status-andamento-bg));
+  }
+  .status-finalizado {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
+    color: hsl(var(--status-finalizado));
+    background-color: hsl(var(--status-finalizado-bg));
+  }
+  .status-cancelado {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
+    color: hsl(var(--status-cancelado));
+    background-color: hsl(var(--status-cancelado-bg));
+  }
+  .status-devolvido {
+    @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
+    color: hsl(var(--status-devolvido));
+    background-color: hsl(var(--status-devolvido-bg));
+  }
+
+  /* Card with corporate shadow */
+  .corp-card {
+    @apply bg-card rounded-xl border border-border;
+    box-shadow: var(--shadow-card);
+  }
+
+  .corp-card-elevated {
+    @apply bg-card rounded-xl border border-border;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Sidebar nav item */
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer;
+    color: hsl(var(--sidebar-fg));
+  }
+
+  .sidebar-nav-item:hover {
+    background-color: hsl(var(--sidebar-hover));
+    color: hsl(0 0% 100%);
+  }
+
+  .sidebar-nav-item.active {
+    background-color: hsl(var(--sidebar-active) / 0.2);
+    color: hsl(var(--sidebar-active));
+    border-left: 3px solid hsl(var(--sidebar-active));
+  }
+
+  /* KPI Card */
+  .kpi-card {
+    @apply corp-card p-5 flex flex-col gap-2;
+  }
+
+  /* Table row hover */
+  .table-row-hover:hover {
+    @apply bg-muted/40;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
