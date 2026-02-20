@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/AppLayout";
 import DashboardPage from "@/pages/Dashboard";
 import { ServicePage } from "@/pages/ServicePage";
 import NotFound from "./pages/NotFound";
+import AuthCallback from "./pages/AuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const ProtectedRoutes = () => {
         <Route path="tecnologia-logistica" element={<ServicePage serviceName="Tecnologia Logística" />} />
         <Route path="tecnologia-risco" element={<ServicePage serviceName="Tecnologia Risco" />} />
         <Route path="*" element={<NotFound />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
       </Route>
     </Routes>
   );
