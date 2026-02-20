@@ -36,6 +36,7 @@ const ProtectedRoutes = () => {
         <Route path="multicadastro" element={<ServicePage serviceName="Multicadastro" />} />
         <Route path="rcv" element={<ServicePage serviceName="RC-V" />} />
         <Route path="tecnologia-logistica" element={<ServicePage serviceName="Tecnologia Logística" />} />
+        <Route path="tecnologia-risco" element={<ServicePage serviceName="Tecnologia Risco" />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
