@@ -9,6 +9,7 @@ export const seedData = async () => {
   const multicadId = services.find(s => s.name === 'Multicadastro')?.id;
   const rcvId = services.find(s => s.name === 'RC-V')?.id;
   const techLogId = services.find(s => s.name === 'Tecnologia Logística')?.id;
+  const techRiskId = services.find(s => s.name === 'Tecnologia Risco')?.id;
 
   const owners = ['Ana Costa', 'Bruno Lima', 'Carla Rocha', 'Diego Nunes', 'Elisa Matos'];
   const statuses = ['NOVO', 'REUNIAO', 'ANDAMENTO', 'FINALIZADO', 'CANCELADO', 'DEVOLVIDO'] as const;
@@ -29,6 +30,7 @@ export const seedData = async () => {
     { name: 'Nu Partners', serviceId: rcvId },
     { name: 'Xi Corporation', serviceId: rcvId },
     { name: 'Omicron Data', serviceId: techLogId },
+    { name: 'Risco Ômega', serviceId: techRiskId },
     { name: 'Pi Logistics', serviceId: techLogId },
     { name: 'Rho Freight', serviceId: techLogId },
     { name: 'Sigma Cargo', serviceId: techLogId },

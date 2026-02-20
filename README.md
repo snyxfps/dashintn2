@@ -33,8 +33,3 @@ Copie/ajuste o arquivo `.env` conforme o seu projeto Supabase.
 npm run build
 npm run preview
 ```
-
-
-## Supabase
-
-Veja o arquivo **SUPABASE_SETUP.md** para configurar Auth, tabelas e permissões.

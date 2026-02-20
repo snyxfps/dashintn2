@@ -22,19 +22,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchRole = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .maybeSingle();
-
-    // Se a tabela/policy ainda não existir no Supabase, ou não houver linha para o usuário,
-    // caímos com segurança para 'viewer' (evita travar o app).
-    if (error) {
-      setUserRole('viewer');
-      return;
-    }
-    setUserRole((data?.role as 'admin' | 'viewer' | undefined) ?? 'viewer');
+      .single();
+    setUserRole(data?.role ?? 'viewer');
   };
 
   useEffect(() => {

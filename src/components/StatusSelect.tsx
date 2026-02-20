@@ -12,9 +12,10 @@ interface StatusSelectProps {
   value: RecordStatus;
   onChange: (value: RecordStatus) => void;
   disabled?: boolean;
+  allowed?: RecordStatus[];
 }
 
-export const StatusSelect: React.FC<StatusSelectProps> = ({ value, onChange, disabled }) => {
+export const StatusSelect: React.FC<StatusSelectProps> = ({ value, onChange, disabled, allowed }) => {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as RecordStatus)} disabled={disabled}>
       <SelectTrigger className="h-8 text-xs border-0 bg-transparent p-0 w-auto gap-1 focus:ring-0">
@@ -26,7 +27,7 @@ export const StatusSelect: React.FC<StatusSelectProps> = ({ value, onChange, dis
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {STATUS_OPTIONS.map(s => (
+        {(allowed ?? STATUS_OPTIONS).map(s => (
           <SelectItem key={s} value={s}>
             <span className={STATUS_CONFIG[s].className}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${STATUS_CONFIG[s].dot}`} />
