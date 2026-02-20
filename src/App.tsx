@@ -9,7 +9,7 @@ import { AppLayout } from "@/components/AppLayout";
 import DashboardPage from "@/pages/Dashboard";
 import { ServicePage } from "@/pages/ServicePage";
 import NotFound from "./pages/NotFound";
-import AuthCallback from "./pages/AuthCallback";
+import AuthCallback from "@/pages/AuthCallback";
 
 const queryClient = new QueryClient();
 
