@@ -166,18 +166,6 @@ export const LoginPage: React.FC = () => {
                 </>
               )}
             </div>
-
-            <div className="mt-6 pt-5 border-t border-border">
-              <p className="text-xs text-center mb-3" style={{ color: 'hsl(220 15% 60%)' }}>Conta demo (admin)</p>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full text-xs h-9"
-                onClick={() => { setEmail('admin@central.com'); setPassword('admin123'); }}
-              >
-                Usar credenciais de demonstração
-              </Button>
-            </div>
           </div>
         </div>
       </div>
