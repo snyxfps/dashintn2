@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: {
         data: { full_name: fullName?.trim() || null },
         // IMPORTANTÍSSIMO para confirmação por e-mail redirecionar certo
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/`,
       },
     });
 
