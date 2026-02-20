@@ -15,18 +15,42 @@ export const LoginPage: React.FC = () => {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const normalizeAuthError = (message?: string) => {
+    if (!message) return 'Ocorreu um erro. Tente novamente.';
+    if (message === 'Invalid login credentials') return 'E-mail ou senha inválidos';
+    if (message.toLowerCase().includes('email not confirmed')) return 'E-mail ainda não confirmado. Verifique sua caixa de entrada.';
+    return message;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
       if (mode === 'login') {
-        const { error } = await signIn(email, password);
-        if (error) toast.error(error.message === 'Invalid login credentials' ? 'E-mail ou senha inválidos' : error.message);
+        const { error } = await signIn(email.trim(), password);
+        if (error) {
+          toast.error(normalizeAuthError(error.message));
+          return;
+        }
+        // Sucesso: o fluxo de navegação normalmente é feito pelo AuthContext/router.
+        toast.success('Login realizado.');
       } else {
-        const { error } = await signUp(email, password, fullName);
-        if (error) toast.error(error.message);
-        else toast.success('Conta criada com sucesso! Faça login.');
+        const { error, needsEmailConfirmation } = await signUp(email.trim(), password, fullName.trim());
+
+        if (error) {
+          toast.error(normalizeAuthError(error.message));
+          return;
+        }
+
+        if (needsEmailConfirmation) {
+          toast.success('Conta criada! Enviamos um e-mail de confirmação. Abra sua caixa de entrada e clique no link para ativar o acesso.');
+        } else {
+          toast.success('Conta criada com sucesso! Você já pode fazer login.');
+        }
+
         setMode('login');
+        setPassword('');
       }
     } finally {
       setLoading(false);
@@ -34,11 +58,17 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, hsl(222 75% 14%) 0%, hsl(222 75% 22%) 100%)' }}>
+    <div
+      className="min-h-screen flex"
+      style={{ background: 'linear-gradient(135deg, hsl(222 75% 14%) 0%, hsl(222 75% 22%) 100%)' }}
+    >
       {/* Left Panel */}
       <div className="hidden lg:flex flex-col justify-between w-1/2 p-12 text-white">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'hsl(213 90% 55% / 0.2)', border: '1px solid hsl(213 90% 55% / 0.4)' }}>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: 'hsl(213 90% 55% / 0.2)', border: '1px solid hsl(213 90% 55% / 0.4)' }}
+          >
             <Layers className="w-5 h-5" style={{ color: 'hsl(213 90% 65%)' }} />
           </div>
           <span className="text-xl font-bold tracking-tight">Central de Integrações</span>
@@ -46,22 +76,26 @@ export const LoginPage: React.FC = () => {
 
         <div>
           <h1 className="text-4xl font-bold leading-tight mb-4" style={{ letterSpacing: '-0.03em' }}>
-            Gestão operacional<br />
+            Gestão operacional
+            <br />
             <span style={{ color: 'hsl(213 90% 65%)' }}>centralizada e eficiente</span>
           </h1>
           <p className="text-base opacity-70 leading-relaxed max-w-sm">
-            Acompanhe integrações SMP, Multicadastro, RC-V e Tecnologia Logística em tempo real, com visibilidade total dos clientes e status.
+            Acompanhe integrações SMP, Multicadastro, RC-V, Tecnologia Logística e Tecnologia Risco em tempo real, com
+            visibilidade total dos clientes e status.
           </p>
         </div>
 
         <div className="flex gap-8">
           {[
-            { label: 'Serviços', value: '4' },
-            { label: 'Clientes ativos', value: '20+' },
-            { label: 'Status em tempo real', value: '6' },
-          ].map(item => (
+            { label: 'Serviços', value: '5' },
+            { label: 'Operação', value: 'Tempo real' },
+            { label: 'Status', value: '6' },
+          ].map((item) => (
             <div key={item.label}>
-              <div className="text-3xl font-bold" style={{ color: 'hsl(213 90% 65%)' }}>{item.value}</div>
+              <div className="text-3xl font-bold" style={{ color: 'hsl(213 90% 65%)' }}>
+                {item.value}
+              </div>
               <div className="text-xs opacity-60 mt-0.5">{item.label}</div>
             </div>
           ))}
@@ -75,7 +109,9 @@ export const LoginPage: React.FC = () => {
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center gap-2 mb-6">
               <Layers className="w-5 h-5" style={{ color: 'hsl(222 75% 28%)' }} />
-              <span className="font-bold text-sm" style={{ color: 'hsl(222 75% 28%)' }}>Central de Integrações</span>
+              <span className="font-bold text-sm" style={{ color: 'hsl(222 75% 28%)' }}>
+                Central de Integrações
+              </span>
             </div>
 
             <h2 className="text-2xl font-bold mb-1" style={{ color: 'hsl(220 30% 12%)', letterSpacing: '-0.02em' }}>
@@ -88,48 +124,66 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="fullName" className="text-sm font-medium">Nome completo</Label>
+                  <Label htmlFor="fullName" className="text-sm font-medium">
+                    Nome completo
+                  </Label>
                   <Input
                     id="fullName"
                     placeholder="Seu nome"
                     value={fullName}
-                    onChange={e => setFullName(e.target.value)}
+                    onChange={(e) => setFullName(e.target.value)}
                     required
                   />
                 </div>
               )}
+
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
+                <Label htmlFor="email" className="text-sm font-medium">
+                  E-mail
+                </Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Senha
+                </Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPass ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     className="pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPass(!showPass)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}
                   >
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
+
+              {mode === 'signup' && (
+                <div className="text-xs leading-relaxed rounded-lg p-3 border bg-muted/40 text-muted-foreground">
+                  Após criar a conta, você receberá um <b>e-mail de confirmação</b>. Clique no link para ativar o acesso.
+                  Se não aparecer, verifique <b>Spam/Lixo eletrônico</b>.
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -153,14 +207,26 @@ export const LoginPage: React.FC = () => {
 
             <div className="mt-5 text-center text-sm" style={{ color: 'hsl(220 15% 50%)' }}>
               {mode === 'login' ? (
-                <>Não tem conta?{' '}
-                  <button onClick={() => setMode('signup')} className="font-semibold hover:underline" style={{ color: 'hsl(222 75% 28%)' }}>
+                <>
+                  Não tem conta?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setMode('signup')}
+                    className="font-semibold hover:underline"
+                    style={{ color: 'hsl(222 75% 28%)' }}
+                  >
                     Criar agora
                   </button>
                 </>
               ) : (
-                <>Já tem conta?{' '}
-                  <button onClick={() => setMode('login')} className="font-semibold hover:underline" style={{ color: 'hsl(222 75% 28%)' }}>
+                <>
+                  Já tem conta?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setMode('login')}
+                    className="font-semibold hover:underline"
+                    style={{ color: 'hsl(222 75% 28%)' }}
+                  >
                     Fazer login
                   </button>
                 </>
