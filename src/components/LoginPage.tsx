@@ -82,7 +82,7 @@ export const LoginPage: React.FC = () => {
           </h1>
           <p className="text-base opacity-70 leading-relaxed max-w-sm">
             Acompanhe integrações SMP, Multicadastro, RC-V, Tecnologia Logística e Tecnologia Risco em tempo real, com
-            visibilidade total dos clientes e status.
+            visibilidade total dos clientes e status
           </p>
         </div>
 
