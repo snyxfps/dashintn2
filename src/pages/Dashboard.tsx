@@ -5,6 +5,7 @@ import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG } from '@/types';
 import { AppHeader } from '@/components/AppHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { seedData } from '@/lib/seed';
+import { formatDateOnlyBR } from '@/lib/dateOnly';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -112,7 +113,14 @@ export default function DashboardPage() {
         onMenuClick={onMenuClick}
         searchValue={search}
         onSearchChange={setSearch}
-        actions={null}
+        actions={
+          records.length === 0 ? (
+            <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${seeding ? 'animate-spin' : ''}`} />
+              {seeding ? 'Carregando...' : 'Carregar dados demo'}
+            </Button>
+          ) : null
+        }
       />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
@@ -235,7 +243,7 @@ export default function DashboardPage() {
                           <td className="px-3 py-3"><StatusBadge status={r.status} /></td>
                           <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner}</td>
                           <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
-                            {new Date(r.start_date).toLocaleDateString('pt-BR')}
+                            {formatDateOnlyBR(r.start_date)}
                           </td>
                         </tr>
                       );

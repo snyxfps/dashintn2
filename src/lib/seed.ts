@@ -1,4 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
+import { todayDateOnlyLocal } from '@/lib/dateOnly';
+
+function dateOnlyFromMsLocal(ms: number): string {
+  const d = new Date(ms);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export const seedData = async () => {
   // Buscar serviços
@@ -9,7 +18,6 @@ export const seedData = async () => {
   const multicadId = services.find(s => s.name === 'Multicadastro')?.id;
   const rcvId = services.find(s => s.name === 'RC-V')?.id;
   const techLogId = services.find(s => s.name === 'Tecnologia Logística')?.id;
-  const techRiskId = services.find(s => s.name === 'Tecnologia Risco')?.id;
 
   const owners = ['Ana Costa', 'Bruno Lima', 'Carla Rocha', 'Diego Nunes', 'Elisa Matos'];
   const statuses = ['NOVO', 'REUNIAO', 'ANDAMENTO', 'FINALIZADO', 'CANCELADO', 'DEVOLVIDO'] as const;
@@ -30,7 +38,6 @@ export const seedData = async () => {
     { name: 'Nu Partners', serviceId: rcvId },
     { name: 'Xi Corporation', serviceId: rcvId },
     { name: 'Omicron Data', serviceId: techLogId },
-    { name: 'Risco Ômega', serviceId: techRiskId },
     { name: 'Pi Logistics', serviceId: techLogId },
     { name: 'Rho Freight', serviceId: techLogId },
     { name: 'Sigma Cargo', serviceId: techLogId },
@@ -43,7 +50,8 @@ export const seedData = async () => {
     .map((c, i) => ({
       service_id: c.serviceId!,
       client_name: c.name,
-      start_date: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      // DATE-only no fuso local
+      start_date: dateOnlyFromMsLocal(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000) || todayDateOnlyLocal(),
       status: statuses[i % statuses.length],
       owner: owners[i % owners.length],
       notes: i % 3 === 0 ? 'Cliente prioritário - acompanhar semanalmente' : i % 3 === 1 ? 'Aguardando documentação' : '',

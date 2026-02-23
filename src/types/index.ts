@@ -3,16 +3,7 @@ export type RecordStatus = 'NOVO' | 'REUNIAO' | 'ANDAMENTO' | 'FINALIZADO' | 'CA
 export interface Service {
   id: string;
   name: string;
-  description?: string | null;
-  notes?: string | null;
-  // Campos específicos por status/serviço (opcionais)
-  agidesk_ticket?: string | null;
-  cadastro_date?: string | null;
-  meeting_datetime?: string | null;
-  integration_type?: string | null;
-  end_date?: string | null;
-  devolucao_date?: string | null;
-  commercial?: string | null;
+  description: string | null;
   created_at: string;
 }
 
