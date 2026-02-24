@@ -1,3 +1,4 @@
+// src/pages/ServicePage.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,25 +8,45 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { StatusSelect } from '@/components/StatusSelect';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateOnlyBR, todayDateOnlyLocal } from '@/lib/dateOnly';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Cell,
 } from 'recharts';
 import {
-  Plus, Edit2, Trash2, Filter, Users, Activity, CheckCircle, XCircle, RotateCcw, CalendarDays, BarChart3, EyeOff
+  Plus,
+  Edit2,
+  Trash2,
+  Filter,
+  Users,
+  Activity,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  CalendarDays,
+  BarChart3,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -43,12 +64,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const STATUS_COLORS: Record<RecordStatus, string> = {
   NOVO: '#94a3b8',
@@ -59,7 +75,9 @@ const STATUS_COLORS: Record<RecordStatus, string> = {
   DEVOLVIDO: '#f97316',
 };
 
-interface OutletContext { onMenuClick: () => void; }
+interface OutletContext {
+  onMenuClick: () => void;
+}
 
 interface ServicePageProps {
   serviceName: string;
@@ -92,10 +110,7 @@ function DroppableColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
-    <div
-      ref={setNodeRef}
-      className={cn("rounded-xl transition", isOver && "ring-2 ring-primary/40")}
-    >
+    <div ref={setNodeRef} className={cn('rounded-xl transition', isOver && 'ring-2 ring-primary/40')}>
       {children}
     </div>
   );
@@ -123,7 +138,7 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(isDragging && "opacity-60")}
+      className={cn(isDragging && 'opacity-60')}
       {...attributes}
       {...listeners}
     >
@@ -164,7 +179,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      // Ajuda a não "arrastar sem querer" quando a pessoa só quer clicar
       activationConstraint: { distance: 8 },
     })
   );
@@ -199,7 +213,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   };
 
   useEffect(() => {
-    // ao trocar de rota/serviço, reseta o form para o status default correto
     setForm(makeEmptyForm(serviceName));
     setEditRecord(null);
     setDialogOpen(false);
@@ -220,7 +233,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     }
   };
 
-  const filtered = records.filter(r => {
+  const filtered = records.filter((r) => {
     const matchSearch = !search || r.client_name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
     const matchOwner = !filterOwner || (r.owner || '').toLowerCase().includes(filterOwner.toLowerCase());
@@ -228,9 +241,8 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   });
 
   // Status permitidos por serviço (regras no banco)
-  const allowedStatusOptions: RecordStatus[] = serviceName === 'RC-V'
-    ? STATUS_OPTIONS
-    : STATUS_OPTIONS.filter(s => s !== 'NOVO' && s !== 'REUNIAO');
+  const allowedStatusOptions: RecordStatus[] =
+    serviceName === 'RC-V' ? STATUS_OPTIONS : STATUS_OPTIONS.filter((s) => s !== 'NOVO' && s !== 'REUNIAO');
 
   // Kanban columns (sempre na ordem desejada)
   const kanbanCols: { status: RecordStatus; label: string }[] = [
@@ -243,27 +255,29 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   ];
 
   const visibleKanbanCols = useMemo(
-    () => kanbanCols.filter(c => allowedStatusOptions.includes(c.status)),
+    () => kanbanCols.filter((c) => allowedStatusOptions.includes(c.status)),
     [allowedStatusOptions]
   );
 
   // KPIs
   const kpis = [
     { label: 'Total no mês', value: records.length, icon: Users, colorVar: 'var(--status-andamento)', bgVar: 'var(--status-andamento-bg)' },
-    { label: 'Em Andamento', value: records.filter(r => r.status === 'ANDAMENTO').length, icon: Activity, colorVar: 'var(--status-andamento)', bgVar: 'var(--status-andamento-bg)' },
-    { label: 'Finalizados', value: records.filter(r => r.status === 'FINALIZADO').length, icon: CheckCircle, colorVar: 'var(--status-finalizado)', bgVar: 'var(--status-finalizado-bg)' },
-    { label: 'Devolvidos', value: records.filter(r => r.status === 'DEVOLVIDO').length, icon: RotateCcw, colorVar: 'var(--status-devolvido)', bgVar: 'var(--status-devolvido-bg)' },
-    { label: 'Cancelados', value: records.filter(r => r.status === 'CANCELADO').length, icon: XCircle, colorVar: 'var(--status-cancelado)', bgVar: 'var(--status-cancelado-bg)' },
+    { label: 'Em Andamento', value: records.filter((r) => r.status === 'ANDAMENTO').length, icon: Activity, colorVar: 'var(--status-andamento)', bgVar: 'var(--status-andamento-bg)' },
+    { label: 'Finalizados', value: records.filter((r) => r.status === 'FINALIZADO').length, icon: CheckCircle, colorVar: 'var(--status-finalizado)', bgVar: 'var(--status-finalizado-bg)' },
+    { label: 'Devolvidos', value: records.filter((r) => r.status === 'DEVOLVIDO').length, icon: RotateCcw, colorVar: 'var(--status-devolvido)', bgVar: 'var(--status-devolvido-bg)' },
+    { label: 'Cancelados', value: records.filter((r) => r.status === 'CANCELADO').length, icon: XCircle, colorVar: 'var(--status-cancelado)', bgVar: 'var(--status-cancelado-bg)' },
   ];
 
   // Status chart
-  const statusChartData = useMemo(() => (
-    allowedStatusOptions.map(s => ({
-      name: STATUS_CONFIG[s].label,
-      count: records.filter(r => r.status === s).length,
-      color: STATUS_COLORS[s],
-    }))
-  ), [records, allowedStatusOptions]);
+  const statusChartData = useMemo(
+    () =>
+      allowedStatusOptions.map((s) => ({
+        name: STATUS_CONFIG[s].label,
+        count: records.filter((r) => r.status === s).length,
+        color: STATUS_COLORS[s],
+      })),
+    [records, allowedStatusOptions]
+  );
 
   const openAdd = () => {
     setEditRecord(null);
@@ -292,7 +306,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setDialogOpen(true);
   };
 
-  // === Validação “espelhando” triggers do banco ===
   // Retorna lista de campos obrigatórios faltando para permitir o status
   const missingFieldsForStatus = (r: ServiceRecord, toStatus: RecordStatus): string[] => {
     const missing: string[] = [];
@@ -328,16 +341,19 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   };
 
   const handleSave = async () => {
-    if (!form.client_name.trim()) { toast.error('Informe o nome do cliente'); return; }
-    if (!service) { toast.error('Serviço não carregado'); return; }
+    if (!form.client_name.trim()) {
+      toast.error('Informe o nome do cliente');
+      return;
+    }
+    if (!service) {
+      toast.error('Serviço não carregado');
+      return;
+    }
 
-    // === Anti-duplicado (cliente) ===
-    // Regra: não pode existir outro card com mesmo nome (case-insensitive)
-    // dentro do mesmo serviço, EXCETO se o status for REUNIAO.
-    // OBS: o banco já tem um índice único parcial, mas aqui a gente dá um feedback amigável.
+    // Anti-duplicado (cliente) - feedback amigável (DB já barra também)
     const normalizedName = form.client_name.trim().toLowerCase();
     if (form.status !== 'REUNIAO') {
-      const dup = records.find(r => {
+      const dup = records.find((r) => {
         const sameName = (r.client_name || '').trim().toLowerCase() === normalizedName;
         const sameService = r.service_id === service.id;
         const notSelf = !editRecord || r.id !== editRecord.id;
@@ -352,58 +368,73 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       }
     }
 
-    // Validações espelhando as regras do banco (para evitar “salva e dá erro”)
+    // Validações espelhando regras do banco
     if (serviceName !== 'RC-V' && (form.status === 'NOVO' || form.status === 'REUNIAO')) {
       toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
       return;
     }
     if (form.status === 'NOVO') {
-      if (!String(form.agidesk_ticket || '').trim()) { toast.error('Chamado Agidesk é obrigatório para NOVO'); return; }
-      if (!String(form.cadastro_date || '').trim()) { toast.error('Data de Cadastro é obrigatória para NOVO'); return; }
+      if (!String(form.agidesk_ticket || '').trim()) {
+        toast.error('Chamado Agidesk é obrigatório para NOVO');
+        return;
+      }
+      if (!String(form.cadastro_date || '').trim()) {
+        toast.error('Data de Cadastro é obrigatória para NOVO');
+        return;
+      }
     }
     if (form.status === 'REUNIAO') {
-      if (!String(form.meeting_datetime || '').trim()) { toast.error('Data/hora reunião é obrigatória para REUNIÃO'); return; }
+      if (!String(form.meeting_datetime || '').trim()) {
+        toast.error('Data/hora reunião é obrigatória para REUNIÃO');
+        return;
+      }
     }
     if (form.status === 'FINALIZADO' || form.status === 'CANCELADO') {
-      if (!String(form.end_date || '').trim()) { toast.error('Data fim é obrigatória para ' + form.status); return; }
+      if (!String(form.end_date || '').trim()) {
+        toast.error('Data fim é obrigatória para ' + form.status);
+        return;
+      }
     }
     if (form.status === 'DEVOLVIDO') {
-      if (!String(form.devolucao_date || '').trim()) { toast.error('Data da devolução é obrigatória para DEVOLVIDO'); return; }
-      if (!String(form.commercial || '').trim()) { toast.error('Comercial é obrigatório para DEVOLVIDO'); return; }
+      if (!String(form.devolucao_date || '').trim()) {
+        toast.error('Data da devolução é obrigatória para DEVOLVIDO');
+        return;
+      }
+      if (!String(form.commercial || '').trim()) {
+        toast.error('Comercial é obrigatório para DEVOLVIDO');
+        return;
+      }
     }
     if (serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(form.status)) {
-      if (!String(form.integration_type || '').trim()) { toast.error('Tipo de Integração é obrigatório para RC-V'); return; }
+      if (!String(form.integration_type || '').trim()) {
+        toast.error('Tipo de Integração é obrigatório para RC-V');
+        return;
+      }
     }
 
     setSaving(true);
     try {
       if (editRecord) {
         const payload: any = { ...form };
-        // evitar enviar strings vazias em campos DATE/TIMESTAMPTZ
-        ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
+        ['cadastro_date', 'end_date', 'devolucao_date'].forEach((k) => {
+          if (!payload[k]) payload[k] = null;
+        });
         if (!payload.meeting_datetime) payload.meeting_datetime = null;
 
-        const { error } = await supabase
-          .from('records')
-          .update(payload)
-          .eq('id', editRecord.id)
-          .select('id')
-          .single();
-
+        const { error } = await supabase.from('records').update(payload).eq('id', editRecord.id).select('id').single();
         if (error) throw error;
+
         toast.success('Registro atualizado!');
       } else {
         const payload: any = { ...form, service_id: service.id };
-        ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
+        ['cadastro_date', 'end_date', 'devolucao_date'].forEach((k) => {
+          if (!payload[k]) payload[k] = null;
+        });
         if (!payload.meeting_datetime) payload.meeting_datetime = null;
 
-        const { error } = await supabase
-          .from('records')
-          .insert(payload)
-          .select('id')
-          .single();
-
+        const { error } = await supabase.from('records').insert(payload).select('id').single();
         if (error) throw error;
+
         toast.success('Registro adicionado!');
       }
 
@@ -414,7 +445,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       setPendingMove(null);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Tente novamente';
-      // Quando o índice único barrar duplicado, o Postgres/Supabase retorna erro 23505.
       if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('23505')) {
         toast.error('Já existe um card para este cliente (exceto Reunião). Abra e edite o existente.');
       } else {
@@ -429,34 +459,31 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     if (!deleteId) return;
     const { error } = await supabase.from('records').delete().eq('id', deleteId);
     if (error) toast.error('Erro ao excluir');
-    else { toast.success('Registro excluído!'); fetchData(); }
+    else {
+      toast.success('Registro excluído!');
+      fetchData();
+    }
     setDeleteId(null);
   };
 
   const handleStatusChange = async (id: string, status: RecordStatus) => {
-    // regra: fora do RC-V não pode NOVO/REUNIAO
     if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
       toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
       return;
     }
 
-    const current = records.find(r => r.id === id);
+    const current = records.find((r) => r.id === id);
     if (!current) return;
 
-    // Se o status destino exige campos, abre modal e deixa o usuário preencher (mesma regra do drag)
     const missing = missingFieldsForStatus(current, status);
     if (missing.length > 0) {
       toast.message(`Para mover para "${STATUS_CONFIG[status].label}", preencha: ${missing.join(', ')}`);
       openEdit(current);
-      setForm(f => ({
+      setForm((f) => ({
         ...f,
         status,
-        end_date: (status === 'FINALIZADO' || status === 'CANCELADO')
-          ? (f.end_date || todayDateOnlyLocal())
-          : f.end_date,
-        devolucao_date: (status === 'DEVOLVIDO')
-          ? (f.devolucao_date || todayDateOnlyLocal())
-          : f.devolucao_date,
+        end_date: status === 'FINALIZADO' || status === 'CANCELADO' ? f.end_date || todayDateOnlyLocal() : f.end_date,
+        devolucao_date: status === 'DEVOLVIDO' ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
       }));
       setPendingMove({ id, to: status });
       return;
@@ -467,7 +494,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     else fetchData();
   };
 
-  const owners = [...new Set(records.map(r => r.owner).filter(Boolean))];
+  const owners = [...new Set(records.map((r) => r.owner).filter(Boolean))];
 
   const onDragStart = (e: DragStartEvent) => {
     setActiveDragId(String(e.active.id));
@@ -483,45 +510,37 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     const recordId = String(active.id);
     const newStatus = String(over.id) as RecordStatus;
 
-    const current = records.find(r => r.id === recordId);
+    const current = records.find((r) => r.id === recordId);
     if (!current) return;
     if (current.status === newStatus) return;
 
-    // Só permite soltar em status válidos para o serviço
     if (!allowedStatusOptions.includes(newStatus)) {
       toast.error('Status não permitido para este serviço.');
       return;
     }
 
-    // Se o status destino exige campos, abre modal e deixa o usuário preencher
     const missing = missingFieldsForStatus(current, newStatus);
     if (missing.length > 0) {
       toast.message(`Para mover para "${STATUS_CONFIG[newStatus].label}", preencha: ${missing.join(', ')}`);
 
       openEdit(current);
 
-      // força o status e dá defaults úteis (sem salvar sozinho)
-      setForm(f => ({
+      setForm((f) => ({
         ...f,
         status: newStatus,
-        end_date: (newStatus === 'FINALIZADO' || newStatus === 'CANCELADO')
-          ? (f.end_date || todayDateOnlyLocal())
-          : f.end_date,
-        devolucao_date: (newStatus === 'DEVOLVIDO')
-          ? (f.devolucao_date || todayDateOnlyLocal())
-          : f.devolucao_date,
+        end_date: newStatus === 'FINALIZADO' || newStatus === 'CANCELADO' ? f.end_date || todayDateOnlyLocal() : f.end_date,
+        devolucao_date: newStatus === 'DEVOLVIDO' ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
       }));
 
       setPendingMove({ id: recordId, to: newStatus });
       return;
     }
 
-    // Se não falta nada, atualiza direto
     handleStatusChange(recordId, newStatus);
   };
 
   const activeRecord = useMemo(
-    () => (activeDragId ? records.find(r => r.id === activeDragId) : null),
+    () => (activeDragId ? records.find((r) => r.id === activeDragId) : null),
     [activeDragId, records]
   );
 
@@ -568,7 +587,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
             {/* KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {kpis.map(kpi => (
+              {kpis.map((kpi) => (
                 <div key={kpi.label} className="kpi-card">
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center"
@@ -584,95 +603,85 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               ))}
             </div>
 
-{/* Kanban */}
-<div className="corp-card p-5">
-  <div className="flex items-center justify-between gap-3 mb-3">
-    <h3 className="text-sm font-semibold text-foreground">
-      Kanban por status
-    </h3>
-  </div>
+            {/* Kanban */}
+            <div className="corp-card p-5">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
 
-  <DndContext
-    sensors={sensors}
-    collisionDetection={closestCenter}
-    onDragStart={onDragStart}
-    onDragEnd={onDragEnd}
-  >
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-      {visibleKanbanCols.map(col => {
-        const colRecords = records.filter(r => r.status === col.status);
-        const cfg = STATUS_CONFIG[col.status];
-
-        return (
-          <div key={col.status} className="min-w-0">
-            <DroppableColumn id={col.status}>
-              <div className="rounded-xl border bg-background/40 overflow-hidden">
-
-                {/* HEADER FIXO DA COLUNA */}
-                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
-                  <div className="flex items-center gap-2">
-                    <span className={cfg.className}>{cfg.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({colRecords.length})
-                    </span>
-                  </div>
-                </div>
-
-                {/* LISTA COM SCROLL */}
-                <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
-                  {colRecords.map(r => (
-                    <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
-                      <div
-                        className={cn(
-                          "corp-card p-3 hover:shadow-md transition-shadow",
-                          isAdmin ? "cursor-pointer" : "cursor-default"
-                        )}
-                        onClick={() => { if (isAdmin) openEdit(r); }}
-                      >
-                        <div className="text-xs font-semibold text-foreground leading-tight mb-1">
-                          {r.client_name}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {r.owner}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {formatDateOnlyBR(r.start_date)}
-                        </div>
-                      </div>
-                    </DraggableCard>
-                  ))}
-
-                  {colRecords.length === 0 && (
-                    <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-                      Vazio
-                    </div>
+                <Button variant="outline" size="sm" onClick={() => setShowChart((v) => !v)} className="h-8">
+                  {showChart ? (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-2" />
+                      Ocultar gráfico
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Mostrar gráfico
+                    </>
                   )}
-                </div>
-
+                </Button>
               </div>
-            </DroppableColumn>
-          </div>
-        );
-      })}
-    </div>
 
-    <DragOverlay>
-      {activeRecord ? (
-        <div className="corp-card p-3 w-56 shadow-lg">
-          <div className="text-xs font-semibold text-foreground leading-tight mb-1">
-            {activeRecord.client_name}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {activeRecord.owner}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {formatDateOnlyBR(activeRecord.start_date)}
-          </div>
-        </div>
-      ) : null}
-    </DragOverlay>
-  </DndContext>
-</div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                  {visibleKanbanCols.map((col) => {
+                    const colRecords = records.filter((r) => r.status === col.status);
+                    const cfg = STATUS_CONFIG[col.status];
+
+                    return (
+                      <div key={col.status} className="min-w-0">
+                        <DroppableColumn id={col.status}>
+                          <div className="rounded-xl border bg-background/40 overflow-hidden">
+                            {/* HEADER FIXO DA COLUNA */}
+                            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
+                              <div className="flex items-center gap-2">
+                                <span className={cfg.className}>{cfg.label}</span>
+                                <span className="text-xs text-muted-foreground">({colRecords.length})</span>
+                              </div>
+                            </div>
+
+                            {/* LISTA COM SCROLL */}
+                            <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
+                              {colRecords.map((r) => (
+                                <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
+                                  <div
+                                    className={cn(
+                                      'corp-card p-3 hover:shadow-md transition-shadow',
+                                      isAdmin ? 'cursor-pointer' : 'cursor-default'
+                                    )}
+                                    onClick={() => {
+                                      if (isAdmin) openEdit(r);
+                                    }}
+                                  >
+                                    <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+                                      {r.client_name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">{r.owner}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {formatDateOnlyBR(r.start_date)}
+                                    </div>
+                                  </div>
+                                </DraggableCard>
+                              ))}
+
+                              {colRecords.length === 0 && (
+                                <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
+                                  Vazio
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </DroppableColumn>
+                      </div>
+                    );
+                  })}
+                </div>
 
                 <DragOverlay>
                   {activeRecord ? (
@@ -698,7 +707,12 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   <BarChart data={statusChartData} layout="vertical" barSize={14}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
                     <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={120} />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }}
+                      width={120}
+                    />
                     <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                       {statusChartData.map((entry, i) => (
@@ -715,25 +729,31 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-border">
                 <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
 
-                <Select value={filterStatus} onValueChange={v => setFilterStatus(v as RecordStatus | 'ALL')}>
+                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as RecordStatus | 'ALL')}>
                   <SelectTrigger className="h-8 w-40 text-xs">
                     <SelectValue placeholder="Todos os status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">Todos os status</SelectItem>
-                    {allowedStatusOptions.map(s => (
-                      <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
+                    {allowedStatusOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_CONFIG[s].label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={filterOwner || 'ALL'} onValueChange={v => setFilterOwner(v === 'ALL' ? '' : v)}>
+                <Select value={filterOwner || 'ALL'} onValueChange={(v) => setFilterOwner(v === 'ALL' ? '' : v)}>
                   <SelectTrigger className="h-8 w-40 text-xs">
                     <SelectValue placeholder="Responsável" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">Todos</SelectItem>
-                    {owners.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    {owners.map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -749,10 +769,18 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                       <tr className="border-b border-border bg-muted/30">
                         <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
                         <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Responsável</th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Data início</th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden lg:table-cell">Observações</th>
-                        {isAdmin && <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-3">Ações</th>}
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">
+                          Responsável
+                        </th>
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">
+                          Data início
+                        </th>
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden lg:table-cell">
+                          Observações
+                        </th>
+                        {isAdmin && (
+                          <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-3">Ações</th>
+                        )}
                       </tr>
                     </thead>
 
@@ -763,82 +791,88 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                             Nenhum registro encontrado.
                           </td>
                         </tr>
-                      ) : filtered.map(r => {
-                        const notes = (r.notes || '').trim();
+                      ) : (
+                        filtered.map((r) => {
+                          const notes = (r.notes || '').trim();
+                          return (
+                            <tr
+                              key={r.id}
+                              className={cn('table-row-hover', isAdmin && 'cursor-pointer')}
+                              onClick={() => {
+                                if (isAdmin) openEdit(r);
+                              }}
+                            >
+                              <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
 
-                        return (
-                          <tr
-                            key={r.id}
-                            className={cn("table-row-hover", isAdmin && "cursor-pointer")}
-                            onClick={() => { if (isAdmin) openEdit(r); }}
-                          >
-                            <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
+                              <td className="px-3 py-3 min-w-[190px]">
+                                {isAdmin ? (
+                                  <StatusSelect
+                                    value={r.status}
+                                    onChange={(s) => handleStatusChange(r.id, s)}
+                                    allowedStatuses={allowedStatusOptions}
+                                  />
+                                ) : (
+                                  <StatusBadge status={r.status} />
+                                )}
+                              </td>
 
-                            {/* ✅ evita cortar status/trigger */}
-                            <td className="px-3 py-3 min-w-[190px]">
-                              {isAdmin ? (
-                                <StatusSelect
-                                  value={r.status}
-                                  onChange={s => handleStatusChange(r.id, s)}
-                                  allowedStatuses={allowedStatusOptions}
-                                />
-                              ) : (
-                                <StatusBadge status={r.status} />
-                              )}
-                            </td>
+                              <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || '-'}</td>
 
-                            <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || '-'}</td>
-
-                            <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
-                              <div className="flex items-center gap-1.5">
-                                <CalendarDays className="w-3 h-3" />
-                                {formatDateOnlyBR(r.start_date)}
-                              </div>
-                            </td>
-
-                            <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[380px]">
-                              {notes ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="line-clamp-2 whitespace-normal break-words">
-                                      {notes}
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-[520px] whitespace-pre-wrap break-words text-xs">
-                                    {notes}
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                '-'
-                              )}
-                            </td>
-
-                            {isAdmin && (
-                              <td className="px-5 py-3 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={(e) => { e.stopPropagation(); openEdit(r); }}
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </Button>
-
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    onClick={(e) => { e.stopPropagation(); setDeleteId(r.id); }}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
+                              <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
+                                <div className="flex items-center gap-1.5">
+                                  <CalendarDays className="w-3 h-3" />
+                                  {formatDateOnlyBR(r.start_date)}
                                 </div>
                               </td>
-                            )}
-                          </tr>
-                        );
-                      })}
+
+                              <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[380px]">
+                                {notes ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="line-clamp-2 whitespace-normal break-words">{notes}</div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-[520px] whitespace-pre-wrap break-words text-xs">
+                                      {notes}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+
+                              {isAdmin && (
+                                <td className="px-5 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEdit(r);
+                                      }}
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </Button>
+
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteId(r.id);
+                                      }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </TooltipProvider>
@@ -861,11 +895,10 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               <Input
                 placeholder="Nome da empresa/cliente"
                 value={form.client_name}
-                onChange={e => setForm(f => ({ ...f, client_name: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, client_name: e.target.value }))}
               />
             </div>
 
-            {/* Campos obrigatórios para NOVO (RC-V) */}
             {form.status === 'NOVO' && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -873,7 +906,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   <Input
                     placeholder="Ex: AGI-12345"
                     value={form.agidesk_ticket}
-                    onChange={e => setForm(f => ({ ...f, agidesk_ticket: e.target.value }))}
+                    onChange={(e) => setForm((f) => ({ ...f, agidesk_ticket: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -881,23 +914,24 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   <Input
                     type="date"
                     value={form.cadastro_date}
-                    onChange={e => setForm(f => ({ ...f, cadastro_date: e.target.value, start_date: e.target.value || f.start_date }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, cadastro_date: e.target.value, start_date: e.target.value || f.start_date }))
+                    }
                   />
                 </div>
               </div>
             )}
 
-            {/* Campo obrigatório para REUNIÃO (RC-V) */}
             {form.status === 'REUNIAO' && (
               <div className="space-y-1.5">
                 <Label>Data/hora da reunião *</Label>
                 <Input
                   type="datetime-local"
                   value={form.meeting_datetime}
-                  onChange={e => {
+                  onChange={(e) => {
                     const v = e.target.value;
                     const dateOnly = v ? v.split('T')[0] : '';
-                    setForm(f => ({ ...f, meeting_datetime: v, start_date: dateOnly || f.start_date }));
+                    setForm((f) => ({ ...f, meeting_datetime: v, start_date: dateOnly || f.start_date }));
                   }}
                 />
               </div>
@@ -906,38 +940,32 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Data de início *</Label>
-                <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-                />
+                <Input type="date" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Status *</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={v => setForm(f => ({ ...f, status: v as RecordStatus }))}
-                >
+                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as RecordStatus }))}>
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {allowedStatusOptions.map(s => (
-                      <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
+                    {allowedStatusOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_CONFIG[s].label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Campos por status/serviço */}
             {serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(form.status) && (
               <div className="space-y-1.5">
                 <Label>Tipo de Integração *</Label>
                 <Input
                   placeholder="Ex: API / Webhook / Batch"
                   value={form.integration_type}
-                  onChange={e => setForm(f => ({ ...f, integration_type: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, integration_type: e.target.value }))}
                 />
               </div>
             )}
@@ -945,11 +973,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             {['FINALIZADO', 'CANCELADO'].includes(form.status) && (
               <div className="space-y-1.5">
                 <Label>Data fim *</Label>
-                <Input
-                  type="date"
-                  value={form.end_date}
-                  onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
-                />
+                <Input type="date" value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} />
               </div>
             )}
 
@@ -960,7 +984,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   <Input
                     type="date"
                     value={form.devolucao_date}
-                    onChange={e => setForm(f => ({ ...f, devolucao_date: e.target.value, start_date: e.target.value || f.start_date }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, devolucao_date: e.target.value, start_date: e.target.value || f.start_date }))
+                    }
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -968,7 +994,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   <Input
                     placeholder="Responsável comercial"
                     value={form.commercial}
-                    onChange={e => setForm(f => ({ ...f, commercial: e.target.value }))}
+                    onChange={(e) => setForm((f) => ({ ...f, commercial: e.target.value }))}
                   />
                 </div>
               </div>
@@ -976,11 +1002,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
             <div className="space-y-1.5">
               <Label>Responsável</Label>
-              <Input
-                placeholder="Nome do responsável"
-                value={form.owner}
-                onChange={e => setForm(f => ({ ...f, owner: e.target.value }))}
-              />
+              <Input placeholder="Nome do responsável" value={form.owner} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} />
             </div>
 
             <div className="space-y-1.5">
@@ -988,7 +1010,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               <Textarea
                 placeholder="Informações adicionais..."
                 value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 rows={3}
                 className="resize-none"
               />
@@ -996,7 +1018,13 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setDialogOpen(false); setPendingMove(null); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                setPendingMove(null);
+              }}
+            >
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving || !form.client_name.trim()}>
@@ -1007,13 +1035,11 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       </Dialog>
 
       {/* Delete Confirm */}
-      <AlertDialog open={!!deleteId} onOpenChange={o => !o && setDeleteId(null)}>
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
