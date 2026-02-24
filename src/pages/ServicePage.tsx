@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG, STATUS_OPTIONS } from '@/types';
@@ -22,13 +22,33 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import {
-  Plus, Edit2, Trash2, Filter, Users, Activity, CheckCircle, XCircle, RotateCcw, CalendarDays
+  Plus, Edit2, Trash2, Filter, Users, Activity, CheckCircle, XCircle, RotateCcw, CalendarDays, BarChart3, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const STATUS_COLORS: Record<RecordStatus, string> = {
   NOVO: '#94a3b8',
@@ -63,6 +83,58 @@ const makeEmptyForm = (serviceName: string) => ({
   commercial: '',
 });
 
+function DroppableColumn({
+  id,
+  children,
+}: {
+  id: RecordStatus;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-xl transition",
+        isOver && "ring-2 ring-primary/40"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DraggableCard({
+  id,
+  children,
+  disabled,
+}: {
+  id: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id,
+    disabled,
+  });
+
+  const style: React.CSSProperties = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(isDragging && "opacity-60")}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
 export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { onMenuClick } = useOutletContext<OutletContext>();
   const { isAdmin } = useAuth();
@@ -84,26 +156,44 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // UI
+  const [showChart, setShowChart] = useState(false);
+
+  // DnD
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Ajuda a não "arrastar sem querer" quando a pessoa só quer clicar
+      activationConstraint: { distance: 8 },
+    })
+  );
+
   const fetchData = async () => {
     setLoading(true);
     setServiceMissing(false);
+
     const { data: svc, error: svcErr } = await supabase
       .from('services')
       .select('*')
       .eq('name', serviceName)
       .single();
+
     if (svcErr || !svc) {
       setService(null);
       setServiceMissing(true);
       setLoading(false);
       return;
     }
+
     setService(svc as Service);
+
     const { data: recs } = await supabase
       .from('records')
       .select('*')
       .eq('service_id', svc.id)
       .order('created_at', { ascending: false });
+
     setRecords((recs as ServiceRecord[]) || []);
     setLoading(false);
   };
@@ -114,6 +204,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setEditRecord(null);
     setDialogOpen(false);
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceName]);
 
   const handleCreateService = async () => {
@@ -128,13 +219,32 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     }
   };
 
-
   const filtered = records.filter(r => {
     const matchSearch = !search || r.client_name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
-    const matchOwner = !filterOwner || r.owner.toLowerCase().includes(filterOwner.toLowerCase());
+    const matchOwner = !filterOwner || (r.owner || '').toLowerCase().includes(filterOwner.toLowerCase());
     return matchSearch && matchStatus && matchOwner;
   });
+
+  // Status permitidos por serviço (regras no banco)
+  const allowedStatusOptions: RecordStatus[] = serviceName === 'RC-V'
+    ? STATUS_OPTIONS
+    : STATUS_OPTIONS.filter(s => s !== 'NOVO' && s !== 'REUNIAO');
+
+  // Kanban columns (sempre na ordem desejada)
+  const kanbanCols: { status: RecordStatus; label: string }[] = [
+    { status: 'NOVO', label: 'Novos Clientes' },
+    { status: 'REUNIAO', label: 'Reuniões' },
+    { status: 'ANDAMENTO', label: 'Em Andamento' },
+    { status: 'FINALIZADO', label: 'Finalizados' },
+    { status: 'CANCELADO', label: 'Cancelados' },
+    { status: 'DEVOLVIDO', label: 'Devolvidos' },
+  ];
+
+  const visibleKanbanCols = useMemo(
+    () => kanbanCols.filter(c => allowedStatusOptions.includes(c.status)),
+    [serviceName] // allowedStatusOptions muda com serviceName
+  );
 
   // KPIs
   const kpis = [
@@ -146,26 +256,13 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   ];
 
   // Status chart
-  const statusChartData = STATUS_OPTIONS.map(s => ({
-    name: STATUS_CONFIG[s].label,
-    count: records.filter(r => r.status === s).length,
-    color: STATUS_COLORS[s],
-  }));
-
-  // Kanban columns
-  const kanbanCols: { status: RecordStatus; label: string }[] = [
-    { status: 'NOVO', label: 'Novos Clientes' },
-    { status: 'REUNIAO', label: 'Reuniões' },
-    { status: 'ANDAMENTO', label: 'Em Andamento' },
-    { status: 'FINALIZADO', label: 'Finalizados' },
-    { status: 'CANCELADO', label: 'Cancelados' },
-    { status: 'DEVOLVIDO', label: 'Devolvidos' },
-  ];
-
-  // Status permitidos por serviço (regras no banco)
-  const allowedStatusOptions: RecordStatus[] = serviceName === 'RC-V'
-    ? STATUS_OPTIONS
-    : STATUS_OPTIONS.filter(s => s !== 'NOVO' && s !== 'REUNIAO');
+  const statusChartData = useMemo(() => (
+    allowedStatusOptions.map(s => ({
+      name: STATUS_CONFIG[s].label,
+      count: records.filter(r => r.status === s).length,
+      color: STATUS_COLORS[s],
+    }))
+  ), [records, allowedStatusOptions]);
 
   const openAdd = () => {
     setEditRecord(null);
@@ -224,20 +321,34 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     try {
       if (editRecord) {
         const payload: any = { ...form };
-        // evitar enviar strings vazias em campos DATE/TIMESTAMPTZ (melhor compatibilidade com regras)
+        // evitar enviar strings vazias em campos DATE/TIMESTAMPTZ
         ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
         if (!payload.meeting_datetime) payload.meeting_datetime = null;
-        const { error } = await supabase.from('records').update(payload).eq('id', editRecord.id).select('id').single();
+
+        const { error } = await supabase
+          .from('records')
+          .update(payload)
+          .eq('id', editRecord.id)
+          .select('id')
+          .single();
+
         if (error) throw error;
         toast.success('Registro atualizado!');
       } else {
         const payload: any = { ...form, service_id: service.id };
         ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
         if (!payload.meeting_datetime) payload.meeting_datetime = null;
-        const { error } = await supabase.from('records').insert(payload).select('id').single();
+
+        const { error } = await supabase
+          .from('records')
+          .insert(payload)
+          .select('id')
+          .single();
+
         if (error) throw error;
         toast.success('Registro adicionado!');
       }
+
       await fetchData();
       setDialogOpen(false);
       setEditRecord(null);
@@ -258,12 +369,50 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   };
 
   const handleStatusChange = async (id: string, status: RecordStatus) => {
+    // regra: fora do RC-V não pode NOVO/REUNIAO
+    if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
+      toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
+      return;
+    }
+
     const { error } = await supabase.from('records').update({ status }).eq('id', id);
     if (error) toast.error('Erro ao atualizar status');
     else fetchData();
   };
 
   const owners = [...new Set(records.map(r => r.owner).filter(Boolean))];
+
+  const onDragStart = (e: DragStartEvent) => {
+    setActiveDragId(String(e.active.id));
+  };
+
+  const onDragEnd = (e: DragEndEvent) => {
+    setActiveDragId(null);
+    if (!isAdmin) return;
+
+    const { active, over } = e;
+    if (!over) return;
+
+    const recordId = String(active.id);
+    const newStatus = String(over.id) as RecordStatus;
+
+    const current = records.find(r => r.id === recordId);
+    if (!current) return;
+    if (current.status === newStatus) return;
+
+    // Só permite soltar em status válidos para o serviço
+    if (!allowedStatusOptions.includes(newStatus)) {
+      toast.error('Status não permitido para este serviço.');
+      return;
+    }
+
+    handleStatusChange(recordId, newStatus);
+  };
+
+  const activeRecord = useMemo(
+    () => (activeDragId ? records.find(r => r.id === activeDragId) : null),
+    [activeDragId, records]
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -310,8 +459,10 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {kpis.map(kpi => (
                 <div key={kpi.label} className="kpi-card">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-                    style={{ background: `hsl(${kpi.bgVar})`, color: `hsl(${kpi.colorVar})` }}>
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center"
+                    style={{ background: `hsl(${kpi.bgVar})`, color: `hsl(${kpi.colorVar})` }}
+                  >
                     <kpi.icon className="w-4 h-4" />
                   </div>
                   <div>
@@ -322,56 +473,110 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               ))}
             </div>
 
-            {/* Kanban + Chart */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              {/* Kanban */}
-              <div className="xl:col-span-2">
-                <h3 className="text-sm font-semibold text-foreground mb-3">Kanban por status</h3>
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {kanbanCols.map(col => {
+            {/* Kanban (100% largura) */}
+            <div className="corp-card p-5">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowChart(v => !v)}
+                  className="h-8"
+                >
+                  {showChart ? (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-2" />
+                      Ocultar gráfico
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Mostrar gráfico
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Grid responsivo: evita scroll lateral no desktop e mostra “inteiro” */}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                  {visibleKanbanCols.map(col => {
                     const colRecords = records.filter(r => r.status === col.status);
                     const cfg = STATUS_CONFIG[col.status];
+
                     return (
-                      <div key={col.status} className="flex-shrink-0 w-48">
+                      <div key={col.status} className="min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className={cfg.className}>{cfg.label}</span>
                           <span className="text-xs text-muted-foreground">({colRecords.length})</span>
                         </div>
-                        <div className="space-y-2 min-h-[60px]">
-                          {colRecords.map(r => (
-                            <div
-                              key={r.id}
-                              className={cn("corp-card p-3 hover:shadow-md transition-shadow", isAdmin && "cursor-pointer")}
-                              onClick={() => { if (isAdmin) openEdit(r); }}
-                            >
-                              <div className="text-xs font-semibold text-foreground leading-tight mb-1">{r.client_name}</div>
-                              <div className="text-xs text-muted-foreground">{r.owner}</div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {formatDateOnlyBR(r.start_date)}
+
+                        <DroppableColumn id={col.status}>
+                          <div className="space-y-2 min-h-[80px]">
+                            {colRecords.map(r => (
+                              <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
+                                <div
+                                  className={cn(
+                                    "corp-card p-3 hover:shadow-md transition-shadow",
+                                    isAdmin ? "cursor-pointer" : "cursor-default"
+                                  )}
+                                  onClick={() => { if (isAdmin) openEdit(r); }}
+                                >
+                                  <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+                                    {r.client_name}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{r.owner}</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {formatDateOnlyBR(r.start_date)}
+                                  </div>
+                                </div>
+                              </DraggableCard>
+                            ))}
+
+                            {colRecords.length === 0 && (
+                              <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
+                                Vazio
                               </div>
-                            </div>
-                          ))}
-                          {colRecords.length === 0 && (
-                            <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-                              Vazio
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        </DroppableColumn>
                       </div>
                     );
                   })}
                 </div>
-              </div>
 
-              {/* Chart */}
+                <DragOverlay>
+                  {activeRecord ? (
+                    <div className="corp-card p-3 w-56 shadow-lg">
+                      <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+                        {activeRecord.client_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{activeRecord.owner}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatDateOnlyBR(activeRecord.start_date)}
+                      </div>
+                    </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
+            </div>
+
+            {/* Chart (abaixo e opcional) */}
+            {showChart && (
               <div className="corp-card p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Quantidade por status</h3>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={statusChartData} layout="vertical" barSize={14}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
                     <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: 'hsl(220 15% 50%)' }} width={90} />
-                    <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={120} />
+                    <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                       {statusChartData.map((entry, i) => (
                         <Cell key={i} fill={entry.color} />
@@ -380,7 +585,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            )}
 
             {/* Filters + Table */}
             <div className="corp-card overflow-hidden">
@@ -398,6 +603,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                     ))}
                   </SelectContent>
                 </Select>
+
                 <Select value={filterOwner || 'ALL'} onValueChange={v => setFilterOwner(v === 'ALL' ? '' : v)}>
                   <SelectTrigger className="h-8 w-40 text-xs">
                     <SelectValue placeholder="Responsável" />
@@ -407,6 +613,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                     {owners.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                   </SelectContent>
                 </Select>
+
                 <div className="ml-auto text-xs text-muted-foreground">
                   {filtered.length} de {records.length} registros
                 </div>
@@ -414,74 +621,101 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
               {/* Table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Responsável</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Data início</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden lg:table-cell">Observações</th>
-                      {isAdmin && <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-3">Ações</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filtered.length === 0 ? (
-                      <tr>
-                        <td colSpan={isAdmin ? 6 : 5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                          Nenhum registro encontrado.
-                        </td>
+                <TooltipProvider delayDuration={200}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Responsável</th>
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Data início</th>
+                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden lg:table-cell">Observações</th>
+                        {isAdmin && <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-3">Ações</th>}
                       </tr>
-                    ) : filtered.map(r => (
-                      <tr
-                        key={r.id}
-                        className={cn("table-row-hover", isAdmin && "cursor-pointer")}
-                        onClick={() => { if (isAdmin) openEdit(r); }}
-                      >
-                        <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
-                        <td className="px-3 py-3">
-                          {isAdmin ? (
-                            <StatusSelect value={r.status} onChange={s => handleStatusChange(r.id, s)} />
-                          ) : (
-                            <StatusBadge status={r.status} />
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || '-'}</td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
-                          <div className="flex items-center gap-1.5">
-                            <CalendarDays className="w-3 h-3" />
-                              {formatDateOnlyBR(r.start_date)}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[200px] truncate">
-                          {r.notes || '-'}
-                        </td>
-                        {isAdmin && (
-                          <td className="px-5 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={(e) => { e.stopPropagation(); openEdit(r); }}
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={(e) => { e.stopPropagation(); setDeleteId(r.id); }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
+                    </thead>
+
+                    <tbody className="divide-y divide-border">
+                      {filtered.length === 0 ? (
+                        <tr>
+                          <td colSpan={isAdmin ? 6 : 5} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                            Nenhum registro encontrado.
                           </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </tr>
+                      ) : filtered.map(r => {
+                        const notes = (r.notes || '').trim();
+
+                        return (
+                          <tr
+                            key={r.id}
+                            className={cn("table-row-hover", isAdmin && "cursor-pointer")}
+                            onClick={() => { if (isAdmin) openEdit(r); }}
+                          >
+                            <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
+
+                            <td className="px-3 py-3">
+                              {isAdmin ? (
+                                <StatusSelect value={r.status} onChange={s => handleStatusChange(r.id, s)} />
+                              ) : (
+                                <StatusBadge status={r.status} />
+                              )}
+                            </td>
+
+                            <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || '-'}</td>
+
+                            <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
+                              <div className="flex items-center gap-1.5">
+                                <CalendarDays className="w-3 h-3" />
+                                {formatDateOnlyBR(r.start_date)}
+                              </div>
+                            </td>
+
+                            {/* Observações: 2 linhas + tooltip com texto completo */}
+                            <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[380px]">
+                              {notes ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="line-clamp-2 whitespace-normal break-words">
+                                      {notes}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-[520px] whitespace-pre-wrap break-words text-xs">
+                                    {notes}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+
+                            {isAdmin && (
+                              <td className="px-5 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={(e) => { e.stopPropagation(); openEdit(r); }}
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </Button>
+
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={(e) => { e.stopPropagation(); setDeleteId(r.id); }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </TooltipProvider>
               </div>
             </div>
           </>
@@ -494,6 +728,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           <DialogHeader>
             <DialogTitle>{editRecord ? 'Editar Registro' : 'Novo Registro'}</DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nome do cliente *</Label>
@@ -553,7 +788,10 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               </div>
               <div className="space-y-1.5">
                 <Label>Status *</Label>
-                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as RecordStatus }))}>
+                <Select
+                  value={form.status}
+                  onValueChange={v => setForm(f => ({ ...f, status: v as RecordStatus }))}
+                >
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
@@ -618,6 +856,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                 onChange={e => setForm(f => ({ ...f, owner: e.target.value }))}
               />
             </div>
+
             <div className="space-y-1.5">
               <Label>Observações</Label>
               <Textarea
@@ -629,6 +868,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               />
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving || !form.client_name.trim()}>
