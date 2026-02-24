@@ -94,10 +94,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={cn(
-        "rounded-xl transition",
-        isOver && "ring-2 ring-primary/40"
-      )}
+      className={cn("rounded-xl transition", isOver && "ring-2 ring-primary/40")}
     >
       {children}
     </div>
@@ -159,6 +156,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   // UI
   const [showChart, setShowChart] = useState(false);
 
+  // Drag “pendente” (quando precisa preencher campo obrigatório antes de efetivar)
+  const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
+
   // DnD
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -203,6 +203,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setForm(makeEmptyForm(serviceName));
     setEditRecord(null);
     setDialogOpen(false);
+    setPendingMove(null);
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceName]);
@@ -243,7 +244,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
   const visibleKanbanCols = useMemo(
     () => kanbanCols.filter(c => allowedStatusOptions.includes(c.status)),
-    [serviceName] // allowedStatusOptions muda com serviceName
+    [allowedStatusOptions]
   );
 
   // KPIs
@@ -268,6 +269,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setEditRecord(null);
     setForm(makeEmptyForm(serviceName));
     setDialogOpen(true);
+    setPendingMove(null);
   };
 
   const openEdit = (r: ServiceRecord) => {
@@ -288,6 +290,41 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       commercial: r.commercial || '',
     });
     setDialogOpen(true);
+  };
+
+  // === Validação “espelhando” triggers do banco ===
+  // Retorna lista de campos obrigatórios faltando para permitir o status
+  const missingFieldsForStatus = (r: ServiceRecord, toStatus: RecordStatus): string[] => {
+    const missing: string[] = [];
+
+    if (serviceName !== 'RC-V' && (toStatus === 'NOVO' || toStatus === 'REUNIAO')) {
+      missing.push('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
+      return missing;
+    }
+
+    if (toStatus === 'NOVO') {
+      if (!String(r.agidesk_ticket || '').trim()) missing.push('Chamado Agidesk');
+      if (!String(r.cadastro_date || '').trim()) missing.push('Data de cadastro');
+    }
+
+    if (toStatus === 'REUNIAO') {
+      if (!String(r.meeting_datetime || '').trim()) missing.push('Data/hora da reunião');
+    }
+
+    if (toStatus === 'FINALIZADO' || toStatus === 'CANCELADO') {
+      if (!String(r.end_date || '').trim()) missing.push('Data fim');
+    }
+
+    if (toStatus === 'DEVOLVIDO') {
+      if (!String(r.devolucao_date || '').trim()) missing.push('Data da devolução');
+      if (!String(r.commercial || '').trim()) missing.push('Comercial');
+    }
+
+    if (serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(toStatus)) {
+      if (!String(r.integration_type || '').trim()) missing.push('Tipo de Integração');
+    }
+
+    return missing;
   };
 
   const handleSave = async () => {
@@ -353,6 +390,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       setDialogOpen(false);
       setEditRecord(null);
       setForm(makeEmptyForm(serviceName));
+      setPendingMove(null);
     } catch (e: unknown) {
       toast.error('Erro ao salvar: ' + (e instanceof Error ? e.message : 'Tente novamente'));
     } finally {
@@ -376,8 +414,11 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     }
 
     const { error } = await supabase.from('records').update({ status }).eq('id', id);
-    if (error) toast.error('Erro ao atualizar status');
-    else fetchData();
+    if (error) {
+      toast.error('Erro ao atualizar status');
+    } else {
+      fetchData();
+    }
   };
 
   const owners = [...new Set(records.map(r => r.owner).filter(Boolean))];
@@ -406,6 +447,30 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       return;
     }
 
+    // Se o status destino exige campos, abre modal e deixa o usuário preencher
+    const missing = missingFieldsForStatus(current, newStatus);
+    if (missing.length > 0) {
+      toast.message(`Para mover para "${STATUS_CONFIG[newStatus].label}", preencha: ${missing.join(', ')}`);
+
+      openEdit(current);
+
+      // força o status e dá defaults úteis (sem salvar sozinho)
+      setForm(f => ({
+        ...f,
+        status: newStatus,
+        end_date: (newStatus === 'FINALIZADO' || newStatus === 'CANCELADO')
+          ? (f.end_date || todayDateOnlyLocal())
+          : f.end_date,
+        devolucao_date: (newStatus === 'DEVOLVIDO')
+          ? (f.devolucao_date || todayDateOnlyLocal())
+          : f.devolucao_date,
+      }));
+
+      setPendingMove({ id: recordId, to: newStatus });
+      return;
+    }
+
+    // Se não falta nada, atualiza direto
     handleStatusChange(recordId, newStatus);
   };
 
@@ -473,7 +538,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               ))}
             </div>
 
-            {/* Kanban (100% largura) */}
+            {/* Kanban */}
             <div className="corp-card p-5">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
@@ -498,7 +563,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                 </Button>
               </div>
 
-              {/* Grid responsivo: evita scroll lateral no desktop e mostra “inteiro” */}
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -589,9 +653,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
             {/* Filters + Table */}
             <div className="corp-card overflow-hidden">
-              {/* Filter bar */}
               <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-border">
                 <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+
                 <Select value={filterStatus} onValueChange={v => setFilterStatus(v as RecordStatus | 'ALL')}>
                   <SelectTrigger className="h-8 w-40 text-xs">
                     <SelectValue placeholder="Todos os status" />
@@ -619,7 +683,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                 </div>
               </div>
 
-              {/* Table */}
               <div className="overflow-x-auto">
                 <TooltipProvider delayDuration={200}>
                   <table className="w-full text-sm">
@@ -652,9 +715,14 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                           >
                             <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
 
-                            <td className="px-3 py-3">
+                            {/* ✅ evita cortar status/trigger */}
+                            <td className="px-3 py-3 min-w-[190px]">
                               {isAdmin ? (
-                                <StatusSelect value={r.status} onChange={s => handleStatusChange(r.id, s)} />
+                                <StatusSelect
+                                  value={r.status}
+                                  onChange={s => handleStatusChange(r.id, s)}
+                                  allowedStatuses={allowedStatusOptions}
+                                />
                               ) : (
                                 <StatusBadge status={r.status} />
                               )}
@@ -669,7 +737,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                               </div>
                             </td>
 
-                            {/* Observações: 2 linhas + tooltip com texto completo */}
                             <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[380px]">
                               {notes ? (
                                 <Tooltip>
@@ -870,7 +937,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setDialogOpen(false); setPendingMove(null); }}>
+              Cancelar
+            </Button>
             <Button onClick={handleSave} disabled={saving || !form.client_name.trim()}>
               {saving ? 'Salvando...' : editRecord ? 'Salvar alterações' : 'Adicionar'}
             </Button>
