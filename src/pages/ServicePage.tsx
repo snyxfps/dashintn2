@@ -364,11 +364,22 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       setEditRecord(null);
       setForm(makeEmptyForm(serviceName));
       setPendingMove(null);
-    } catch (e: unknown) {
-      toast.error('Erro ao salvar: ' + (e instanceof Error ? e.message : 'Tente novamente'));
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) {
+  // Postgres unique violation (índice único) => 23505
+  const code = e?.code ?? e?.cause?.code;
+  const msg = String(e?.message ?? '');
+
+  if (code === '23505' || msg.toLowerCase().includes('duplicate key')) {
+    toast.error(
+      'Já existe um card desse cliente neste serviço. Edite o card existente. (Reunião Operacional é a única exceção.)'
+    );
+    return;
+  }
+
+  toast.error('Erro ao salvar: ' + (e instanceof Error ? e.message : 'Tente novamente'));
+} finally {
+  setSaving(false);
+}
   };
 
   const handleDelete = async () => {
@@ -379,17 +390,30 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setDeleteId(null);
   };
 
-  const handleStatusChange = async (id: string, status: RecordStatus) => {
-    // regra: fora do RC-V não pode NOVO/REUNIAO
-    if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
-      toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
+const handleStatusChange = async (id: string, status: RecordStatus) => {
+  // regra: fora do RC-V não pode NOVO/REUNIAO
+  if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
+    toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
+    return;
+  }
+
+  const { error } = await supabase.from('records').update({ status }).eq('id', id);
+
+  if (error) {
+    const code = (error as any)?.code ?? (error as any)?.cause?.code;
+    const msg = String((error as any)?.message ?? '');
+
+    if (code === '23505' || msg.toLowerCase().includes('duplicate key')) {
+      toast.error('Já existe um card desse cliente neste serviço. Edite o card existente.');
       return;
     }
 
-    const { error } = await supabase.from('records').update({ status }).eq('id', id);
-    if (error) toast.error('Erro ao atualizar status');
-    else fetchData();
-  };
+    toast.error('Erro ao atualizar status: ' + error.message);
+    return;
+  }
+
+  fetchData();
+};
 
   const owners = [...new Set(records.map(r => r.owner).filter(Boolean))];
 
