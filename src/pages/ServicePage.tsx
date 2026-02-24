@@ -22,7 +22,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Edit2, Trash2, Filter, Users, Activity, CheckCircle, XCircle, RotateCcw, CalendarDays
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell
+} from 'recharts';
+import {
+  Plus, Edit2, Trash2, Filter, Users, Activity, CheckCircle, XCircle, RotateCcw, CalendarDays, BarChart3, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -46,6 +49,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+
+const STATUS_COLORS: Record<RecordStatus, string> = {
+  NOVO: '#94a3b8',
+  REUNIAO: '#a78bfa',
+  ANDAMENTO: '#3b82f6',
+  FINALIZADO: '#22c55e',
+  CANCELADO: '#ef4444',
+  DEVOLVIDO: '#f97316',
+};
 
 interface OutletContext { onMenuClick: () => void; }
 
@@ -141,6 +153,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // UI
+  const [showChart, setShowChart] = useState(false);
+
   // Drag “pendente” (quando precisa preencher campo obrigatório antes de efetivar)
   const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
 
@@ -184,6 +199,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   };
 
   useEffect(() => {
+    // ao trocar de rota/serviço, reseta o form para o status default correto
     setForm(makeEmptyForm(serviceName));
     setEditRecord(null);
     setDialogOpen(false);
@@ -216,7 +232,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     ? STATUS_OPTIONS
     : STATUS_OPTIONS.filter(s => s !== 'NOVO' && s !== 'REUNIAO');
 
-  // Kanban columns (ordem fixa)
+  // Kanban columns (sempre na ordem desejada)
   const kanbanCols: { status: RecordStatus; label: string }[] = [
     { status: 'NOVO', label: 'Novos Clientes' },
     { status: 'REUNIAO', label: 'Reuniões' },
@@ -239,6 +255,15 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     { label: 'Devolvidos', value: records.filter(r => r.status === 'DEVOLVIDO').length, icon: RotateCcw, colorVar: 'var(--status-devolvido)', bgVar: 'var(--status-devolvido-bg)' },
     { label: 'Cancelados', value: records.filter(r => r.status === 'CANCELADO').length, icon: XCircle, colorVar: 'var(--status-cancelado)', bgVar: 'var(--status-cancelado-bg)' },
   ];
+
+  // Status chart
+  const statusChartData = useMemo(() => (
+    allowedStatusOptions.map(s => ({
+      name: STATUS_CONFIG[s].label,
+      count: records.filter(r => r.status === s).length,
+      color: STATUS_COLORS[s],
+    }))
+  ), [records, allowedStatusOptions]);
 
   const openAdd = () => {
     setEditRecord(null);
@@ -267,6 +292,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setDialogOpen(true);
   };
 
+  // === Validação “espelhando” triggers do banco ===
   // Retorna lista de campos obrigatórios faltando para permitir o status
   const missingFieldsForStatus = (r: ServiceRecord, toStatus: RecordStatus): string[] => {
     const missing: string[] = [];
@@ -305,7 +331,28 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     if (!form.client_name.trim()) { toast.error('Informe o nome do cliente'); return; }
     if (!service) { toast.error('Serviço não carregado'); return; }
 
-    // Validações espelhando regras do banco
+    // === Anti-duplicado (cliente) ===
+    // Regra: não pode existir outro card com mesmo nome (case-insensitive)
+    // dentro do mesmo serviço, EXCETO se o status for REUNIAO.
+    // OBS: o banco já tem um índice único parcial, mas aqui a gente dá um feedback amigável.
+    const normalizedName = form.client_name.trim().toLowerCase();
+    if (form.status !== 'REUNIAO') {
+      const dup = records.find(r => {
+        const sameName = (r.client_name || '').trim().toLowerCase() === normalizedName;
+        const sameService = r.service_id === service.id;
+        const notSelf = !editRecord || r.id !== editRecord.id;
+        const notReuniao = r.status !== 'REUNIAO';
+        return sameName && sameService && notSelf && notReuniao;
+      });
+
+      if (dup) {
+        toast.error('Já existe um card para este cliente. Abra e edite o registro existente.');
+        if (isAdmin) openEdit(dup);
+        return;
+      }
+    }
+
+    // Validações espelhando as regras do banco (para evitar “salva e dá erro”)
     if (serviceName !== 'RC-V' && (form.status === 'NOVO' || form.status === 'REUNIAO')) {
       toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
       return;
@@ -332,6 +379,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     try {
       if (editRecord) {
         const payload: any = { ...form };
+        // evitar enviar strings vazias em campos DATE/TIMESTAMPTZ
         ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
         if (!payload.meeting_datetime) payload.meeting_datetime = null;
 
@@ -364,22 +412,17 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       setEditRecord(null);
       setForm(makeEmptyForm(serviceName));
       setPendingMove(null);
-    } catch (e: any) {
-  // Postgres unique violation (índice único) => 23505
-  const code = e?.code ?? e?.cause?.code;
-  const msg = String(e?.message ?? '');
-
-  if (code === '23505' || msg.toLowerCase().includes('duplicate key')) {
-    toast.error(
-      'Já existe um card desse cliente neste serviço. Edite o card existente. (Reunião Operacional é a única exceção.)'
-    );
-    return;
-  }
-
-  toast.error('Erro ao salvar: ' + (e instanceof Error ? e.message : 'Tente novamente'));
-} finally {
-  setSaving(false);
-}
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Tente novamente';
+      // Quando o índice único barrar duplicado, o Postgres/Supabase retorna erro 23505.
+      if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('23505')) {
+        toast.error('Já existe um card para este cliente (exceto Reunião). Abra e edite o existente.');
+      } else {
+        toast.error('Erro ao salvar: ' + msg);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -390,30 +433,39 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setDeleteId(null);
   };
 
-const handleStatusChange = async (id: string, status: RecordStatus) => {
-  // regra: fora do RC-V não pode NOVO/REUNIAO
-  if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
-    toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
-    return;
-  }
-
-  const { error } = await supabase.from('records').update({ status }).eq('id', id);
-
-  if (error) {
-    const code = (error as any)?.code ?? (error as any)?.cause?.code;
-    const msg = String((error as any)?.message ?? '');
-
-    if (code === '23505' || msg.toLowerCase().includes('duplicate key')) {
-      toast.error('Já existe um card desse cliente neste serviço. Edite o card existente.');
+  const handleStatusChange = async (id: string, status: RecordStatus) => {
+    // regra: fora do RC-V não pode NOVO/REUNIAO
+    if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
+      toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
       return;
     }
 
-    toast.error('Erro ao atualizar status: ' + error.message);
-    return;
-  }
+    const current = records.find(r => r.id === id);
+    if (!current) return;
 
-  fetchData();
-};
+    // Se o status destino exige campos, abre modal e deixa o usuário preencher (mesma regra do drag)
+    const missing = missingFieldsForStatus(current, status);
+    if (missing.length > 0) {
+      toast.message(`Para mover para "${STATUS_CONFIG[status].label}", preencha: ${missing.join(', ')}`);
+      openEdit(current);
+      setForm(f => ({
+        ...f,
+        status,
+        end_date: (status === 'FINALIZADO' || status === 'CANCELADO')
+          ? (f.end_date || todayDateOnlyLocal())
+          : f.end_date,
+        devolucao_date: (status === 'DEVOLVIDO')
+          ? (f.devolucao_date || todayDateOnlyLocal())
+          : f.devolucao_date,
+      }));
+      setPendingMove({ id, to: status });
+      return;
+    }
+
+    const { error } = await supabase.from('records').update({ status }).eq('id', id);
+    if (error) toast.error('Erro ao atualizar status');
+    else fetchData();
+  };
 
   const owners = [...new Set(records.map(r => r.owner).filter(Boolean))];
 
@@ -441,13 +493,14 @@ const handleStatusChange = async (id: string, status: RecordStatus) => {
       return;
     }
 
-    // Se faltar obrigatório no destino: abre modal já com status destino + defaults
+    // Se o status destino exige campos, abre modal e deixa o usuário preencher
     const missing = missingFieldsForStatus(current, newStatus);
     if (missing.length > 0) {
       toast.message(`Para mover para "${STATUS_CONFIG[newStatus].label}", preencha: ${missing.join(', ')}`);
 
       openEdit(current);
 
+      // força o status e dá defaults úteis (sem salvar sozinho)
       setForm(f => ({
         ...f,
         status: newStatus,
@@ -463,6 +516,7 @@ const handleStatusChange = async (id: string, status: RecordStatus) => {
       return;
     }
 
+    // Se não falta nada, atualiza direto
     handleStatusChange(recordId, newStatus);
   };
 
@@ -530,69 +584,95 @@ const handleStatusChange = async (id: string, status: RecordStatus) => {
               ))}
             </div>
 
-            {/* Kanban */}
-            <div className="corp-card p-5">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
-              </div>
+{/* Kanban */}
+<div className="corp-card p-5">
+  <div className="flex items-center justify-between gap-3 mb-3">
+    <h3 className="text-sm font-semibold text-foreground">
+      Kanban por status
+    </h3>
+  </div>
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                  {visibleKanbanCols.map(col => {
-                    const colRecords = records.filter(r => r.status === col.status);
-                    const cfg = STATUS_CONFIG[col.status];
+  <DndContext
+    sensors={sensors}
+    collisionDetection={closestCenter}
+    onDragStart={onDragStart}
+    onDragEnd={onDragEnd}
+  >
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      {visibleKanbanCols.map(col => {
+        const colRecords = records.filter(r => r.status === col.status);
+        const cfg = STATUS_CONFIG[col.status];
 
-                    return (
-                      <div key={col.status} className="min-w-0">
-                        <DroppableColumn id={col.status}>
-                          <div className="rounded-xl border bg-background/40 overflow-hidden">
-                            {/* Header sticky da coluna */}
-                            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={cn(cfg.className, "truncate")}>{cfg.label}</span>
-                                <span className="text-xs text-muted-foreground">({colRecords.length})</span>
-                              </div>
-                            </div>
+        return (
+          <div key={col.status} className="min-w-0">
+            <DroppableColumn id={col.status}>
+              <div className="rounded-xl border bg-background/40 overflow-hidden">
 
-                            {/* Lista com scroll próprio */}
-                            <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
-                              {colRecords.map(r => (
-                                <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
-                                  <div
-                                    className={cn(
-                                      "corp-card p-3 hover:shadow-md transition-shadow",
-                                      isAdmin ? "cursor-pointer" : "cursor-default"
-                                    )}
-                                    onClick={() => { if (isAdmin) openEdit(r); }}
-                                  >
-                                    <div className="text-xs font-semibold text-foreground leading-tight mb-1">
-                                      {r.client_name}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">{r.owner}</div>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      {formatDateOnlyBR(r.start_date)}
-                                    </div>
-                                  </div>
-                                </DraggableCard>
-                              ))}
-
-                              {colRecords.length === 0 && (
-                                <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-                                  Vazio
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </DroppableColumn>
-                      </div>
-                    );
-                  })}
+                {/* HEADER FIXO DA COLUNA */}
+                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <span className={cfg.className}>{cfg.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({colRecords.length})
+                    </span>
+                  </div>
                 </div>
+
+                {/* LISTA COM SCROLL */}
+                <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
+                  {colRecords.map(r => (
+                    <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
+                      <div
+                        className={cn(
+                          "corp-card p-3 hover:shadow-md transition-shadow",
+                          isAdmin ? "cursor-pointer" : "cursor-default"
+                        )}
+                        onClick={() => { if (isAdmin) openEdit(r); }}
+                      >
+                        <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+                          {r.client_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.owner}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {formatDateOnlyBR(r.start_date)}
+                        </div>
+                      </div>
+                    </DraggableCard>
+                  ))}
+
+                  {colRecords.length === 0 && (
+                    <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
+                      Vazio
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </DroppableColumn>
+          </div>
+        );
+      })}
+    </div>
+
+    <DragOverlay>
+      {activeRecord ? (
+        <div className="corp-card p-3 w-56 shadow-lg">
+          <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+            {activeRecord.client_name}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {activeRecord.owner}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {formatDateOnlyBR(activeRecord.start_date)}
+          </div>
+        </div>
+      ) : null}
+    </DragOverlay>
+  </DndContext>
+</div>
 
                 <DragOverlay>
                   {activeRecord ? (
@@ -609,6 +689,26 @@ const handleStatusChange = async (id: string, status: RecordStatus) => {
                 </DragOverlay>
               </DndContext>
             </div>
+
+            {/* Chart (abaixo e opcional) */}
+            {showChart && (
+              <div className="corp-card p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Quantidade por status</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={statusChartData} layout="vertical" barSize={14}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={120} />
+                    <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                      {statusChartData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             {/* Filters + Table */}
             <div className="corp-card overflow-hidden">
@@ -674,7 +774,7 @@ const handleStatusChange = async (id: string, status: RecordStatus) => {
                           >
                             <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
 
-                            {/* evita cortar o status */}
+                            {/* ✅ evita cortar status/trigger */}
                             <td className="px-3 py-3 min-w-[190px]">
                               {isAdmin ? (
                                 <StatusSelect
@@ -696,7 +796,6 @@ const handleStatusChange = async (id: string, status: RecordStatus) => {
                               </div>
                             </td>
 
-                            {/* Observações: 2 linhas + tooltip */}
                             <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[380px]">
                               {notes ? (
                                 <Tooltip>
