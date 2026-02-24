@@ -538,63 +538,95 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               ))}
             </div>
 
-            {/* Kanban */}
-            <div className="corp-card p-5">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
-              </div>
+{/* Kanban */}
+<div className="corp-card p-5">
+  <div className="flex items-center justify-between gap-3 mb-3">
+    <h3 className="text-sm font-semibold text-foreground">
+      Kanban por status
+    </h3>
+  </div>
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                  {visibleKanbanCols.map(col => {
-                    const colRecords = records.filter(r => r.status === col.status);
-                    const cfg = STATUS_CONFIG[col.status];
+  <DndContext
+    sensors={sensors}
+    collisionDetection={closestCenter}
+    onDragStart={onDragStart}
+    onDragEnd={onDragEnd}
+  >
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      {visibleKanbanCols.map(col => {
+        const colRecords = records.filter(r => r.status === col.status);
+        const cfg = STATUS_CONFIG[col.status];
 
-                    return (
-                      <div key={col.status} className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={cfg.className}>{cfg.label}</span>
-                          <span className="text-xs text-muted-foreground">({colRecords.length})</span>
-                        </div>
+        return (
+          <div key={col.status} className="min-w-0">
+            <DroppableColumn id={col.status}>
+              <div className="rounded-xl border bg-background/40 overflow-hidden">
 
-                        <DroppableColumn id={col.status}>
-                          <div className="space-y-2 min-h-[80px]">
-                            {colRecords.map(r => (
-                              <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
-                                <div
-                                  className={cn(
-                                    "corp-card p-3 hover:shadow-md transition-shadow",
-                                    isAdmin ? "cursor-pointer" : "cursor-default"
-                                  )}
-                                  onClick={() => { if (isAdmin) openEdit(r); }}
-                                >
-                                  <div className="text-xs font-semibold text-foreground leading-tight mb-1">
-                                    {r.client_name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">{r.owner}</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {formatDateOnlyBR(r.start_date)}
-                                  </div>
-                                </div>
-                              </DraggableCard>
-                            ))}
-
-                            {colRecords.length === 0 && (
-                              <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-                                Vazio
-                              </div>
-                            )}
-                          </div>
-                        </DroppableColumn>
-                      </div>
-                    );
-                  })}
+                {/* HEADER FIXO DA COLUNA */}
+                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <span className={cfg.className}>{cfg.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({colRecords.length})
+                    </span>
+                  </div>
                 </div>
+
+                {/* LISTA COM SCROLL */}
+                <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
+                  {colRecords.map(r => (
+                    <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
+                      <div
+                        className={cn(
+                          "corp-card p-3 hover:shadow-md transition-shadow",
+                          isAdmin ? "cursor-pointer" : "cursor-default"
+                        )}
+                        onClick={() => { if (isAdmin) openEdit(r); }}
+                      >
+                        <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+                          {r.client_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.owner}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {formatDateOnlyBR(r.start_date)}
+                        </div>
+                      </div>
+                    </DraggableCard>
+                  ))}
+
+                  {colRecords.length === 0 && (
+                    <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
+                      Vazio
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </DroppableColumn>
+          </div>
+        );
+      })}
+    </div>
+
+    <DragOverlay>
+      {activeRecord ? (
+        <div className="corp-card p-3 w-56 shadow-lg">
+          <div className="text-xs font-semibold text-foreground leading-tight mb-1">
+            {activeRecord.client_name}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {activeRecord.owner}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {formatDateOnlyBR(activeRecord.start_date)}
+          </div>
+        </div>
+      ) : null}
+    </DragOverlay>
+  </DndContext>
+</div>
 
                 <DragOverlay>
                   {activeRecord ? (
