@@ -45,14 +45,23 @@ interface ServicePageProps {
   serviceName: string;
 }
 
-const emptyForm = {
+const makeEmptyForm = (serviceName: string) => ({
   client_name: '',
   // DATE-only: manter em YYYY-MM-DD no fuso local (evita “voltar um dia”)
   start_date: todayDateOnlyLocal(),
-  status: 'NOVO' as RecordStatus,
+  // Regras no banco: NOVO/REUNIAO só para RC-V.
+  status: (serviceName === 'RC-V' ? 'NOVO' : 'ANDAMENTO') as RecordStatus,
   owner: '',
   notes: '',
-};
+  // Campos adicionais
+  agidesk_ticket: '',
+  cadastro_date: '',
+  meeting_datetime: '',
+  integration_type: '',
+  end_date: '',
+  devolucao_date: '',
+  commercial: '',
+});
 
 export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { onMenuClick } = useOutletContext<OutletContext>();
@@ -69,7 +78,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceRecord | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => makeEmptyForm(serviceName));
   const [saving, setSaving] = useState(false);
 
   // Delete
@@ -99,7 +108,13 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [serviceName]);
+  useEffect(() => {
+    // ao trocar de rota/serviço, reseta o form para o status default correto
+    setForm(makeEmptyForm(serviceName));
+    setEditRecord(null);
+    setDialogOpen(false);
+    fetchData();
+  }, [serviceName]);
 
   const handleCreateService = async () => {
     if (!isAdmin) return;
@@ -147,36 +162,86 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     { status: 'DEVOLVIDO', label: 'Devolvidos' },
   ];
 
+  // Status permitidos por serviço (regras no banco)
+  const allowedStatusOptions: RecordStatus[] = serviceName === 'RC-V'
+    ? STATUS_OPTIONS
+    : STATUS_OPTIONS.filter(s => s !== 'NOVO' && s !== 'REUNIAO');
+
   const openAdd = () => {
     setEditRecord(null);
-    setForm(emptyForm);
+    setForm(makeEmptyForm(serviceName));
     setDialogOpen(true);
   };
 
   const openEdit = (r: ServiceRecord) => {
     setEditRecord(r);
-    setForm({ client_name: r.client_name, start_date: r.start_date, status: r.status, owner: r.owner, notes: r.notes || '' });
+    setForm({
+      ...makeEmptyForm(serviceName),
+      client_name: r.client_name,
+      start_date: r.start_date,
+      status: r.status,
+      owner: r.owner,
+      notes: r.notes || '',
+      agidesk_ticket: r.agidesk_ticket || '',
+      cadastro_date: r.cadastro_date || '',
+      meeting_datetime: r.meeting_datetime || '',
+      integration_type: r.integration_type || '',
+      end_date: r.end_date || '',
+      devolucao_date: r.devolucao_date || '',
+      commercial: r.commercial || '',
+    });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.client_name.trim()) { toast.error('Informe o nome do cliente'); return; }
     if (!service) { toast.error('Serviço não carregado'); return; }
+
+    // Validações espelhando as regras do banco (para evitar “salva e dá erro”)
+    if (serviceName !== 'RC-V' && (form.status === 'NOVO' || form.status === 'REUNIAO')) {
+      toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
+      return;
+    }
+    if (form.status === 'NOVO') {
+      if (!String(form.agidesk_ticket || '').trim()) { toast.error('Chamado Agidesk é obrigatório para NOVO'); return; }
+      if (!String(form.cadastro_date || '').trim()) { toast.error('Data de Cadastro é obrigatória para NOVO'); return; }
+    }
+    if (form.status === 'REUNIAO') {
+      if (!String(form.meeting_datetime || '').trim()) { toast.error('Data/hora reunião é obrigatória para REUNIÃO'); return; }
+    }
+    if (form.status === 'FINALIZADO' || form.status === 'CANCELADO') {
+      if (!String(form.end_date || '').trim()) { toast.error('Data fim é obrigatória para ' + form.status); return; }
+    }
+    if (form.status === 'DEVOLVIDO') {
+      if (!String(form.devolucao_date || '').trim()) { toast.error('Data da devolução é obrigatória para DEVOLVIDO'); return; }
+      if (!String(form.commercial || '').trim()) { toast.error('Comercial é obrigatório para DEVOLVIDO'); return; }
+    }
+    if (serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(form.status)) {
+      if (!String(form.integration_type || '').trim()) { toast.error('Tipo de Integração é obrigatório para RC-V'); return; }
+    }
+
     setSaving(true);
     try {
       if (editRecord) {
-        const { error } = await supabase.from('records').update({ ...form }).eq('id', editRecord.id).select('id').single();
+        const payload: any = { ...form };
+        // evitar enviar strings vazias em campos DATE/TIMESTAMPTZ (melhor compatibilidade com regras)
+        ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
+        if (!payload.meeting_datetime) payload.meeting_datetime = null;
+        const { error } = await supabase.from('records').update(payload).eq('id', editRecord.id).select('id').single();
         if (error) throw error;
         toast.success('Registro atualizado!');
       } else {
-        const { error } = await supabase.from('records').insert({ ...form, service_id: service.id }).select('id').single();
+        const payload: any = { ...form, service_id: service.id };
+        ['cadastro_date', 'end_date', 'devolucao_date'].forEach(k => { if (!payload[k]) payload[k] = null; });
+        if (!payload.meeting_datetime) payload.meeting_datetime = null;
+        const { error } = await supabase.from('records').insert(payload).select('id').single();
         if (error) throw error;
         toast.success('Registro adicionado!');
       }
       await fetchData();
       setDialogOpen(false);
       setEditRecord(null);
-      setForm(emptyForm);
+      setForm(makeEmptyForm(serviceName));
     } catch (e: unknown) {
       toast.error('Erro ao salvar: ' + (e instanceof Error ? e.message : 'Tente novamente'));
     } finally {
@@ -274,7 +339,11 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                         </div>
                         <div className="space-y-2 min-h-[60px]">
                           {colRecords.map(r => (
-                            <div key={r.id} className="corp-card p-3 cursor-pointer hover:shadow-md transition-shadow">
+                            <div
+                              key={r.id}
+                              className={cn("corp-card p-3 hover:shadow-md transition-shadow", isAdmin && "cursor-pointer")}
+                              onClick={() => { if (isAdmin) openEdit(r); }}
+                            >
                               <div className="text-xs font-semibold text-foreground leading-tight mb-1">{r.client_name}</div>
                               <div className="text-xs text-muted-foreground">{r.owner}</div>
                               <div className="text-xs text-muted-foreground mt-1">
@@ -324,7 +393,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">Todos os status</SelectItem>
-                    {STATUS_OPTIONS.map(s => (
+                    {allowedStatusOptions.map(s => (
                       <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -434,6 +503,45 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                 onChange={e => setForm(f => ({ ...f, client_name: e.target.value }))}
               />
             </div>
+
+            {/* Campos obrigatórios para NOVO (RC-V) */}
+            {form.status === 'NOVO' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Chamado Agidesk *</Label>
+                  <Input
+                    placeholder="Ex: AGI-12345"
+                    value={form.agidesk_ticket}
+                    onChange={e => setForm(f => ({ ...f, agidesk_ticket: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data de cadastro *</Label>
+                  <Input
+                    type="date"
+                    value={form.cadastro_date}
+                    onChange={e => setForm(f => ({ ...f, cadastro_date: e.target.value, start_date: e.target.value || f.start_date }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Campo obrigatório para REUNIÃO (RC-V) */}
+            {form.status === 'REUNIAO' && (
+              <div className="space-y-1.5">
+                <Label>Data/hora da reunião *</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.meeting_datetime}
+                  onChange={e => {
+                    const v = e.target.value;
+                    const dateOnly = v ? v.split('T')[0] : '';
+                    setForm(f => ({ ...f, meeting_datetime: v, start_date: dateOnly || f.start_date }));
+                  }}
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Data de início *</Label>
@@ -450,13 +558,58 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPTIONS.map(s => (
+                    {allowedStatusOptions.map(s => (
                       <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* Campos por status/serviço */}
+            {serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(form.status) && (
+              <div className="space-y-1.5">
+                <Label>Tipo de Integração *</Label>
+                <Input
+                  placeholder="Ex: API / Webhook / Batch"
+                  value={form.integration_type}
+                  onChange={e => setForm(f => ({ ...f, integration_type: e.target.value }))}
+                />
+              </div>
+            )}
+
+            {['FINALIZADO', 'CANCELADO'].includes(form.status) && (
+              <div className="space-y-1.5">
+                <Label>Data fim *</Label>
+                <Input
+                  type="date"
+                  value={form.end_date}
+                  onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
+                />
+              </div>
+            )}
+
+            {form.status === 'DEVOLVIDO' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Data da devolução *</Label>
+                  <Input
+                    type="date"
+                    value={form.devolucao_date}
+                    onChange={e => setForm(f => ({ ...f, devolucao_date: e.target.value, start_date: e.target.value || f.start_date }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Comercial *</Label>
+                  <Input
+                    placeholder="Responsável comercial"
+                    value={form.commercial}
+                    onChange={e => setForm(f => ({ ...f, commercial: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label>Responsável</Label>
               <Input

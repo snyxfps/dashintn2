@@ -15,6 +15,14 @@ export interface ServiceRecord {
   status: RecordStatus;
   owner: string;
   notes: string | null;
+  // Campos adicionais (regras de negócio / RC-V)
+  agidesk_ticket?: string | null;
+  cadastro_date?: string | null;
+  meeting_datetime?: string | null;
+  integration_type?: string | null;
+  end_date?: string | null;
+  devolucao_date?: string | null;
+  commercial?: string | null;
   created_at: string;
   updated_at: string;
 }
