@@ -13,6 +13,7 @@ const navItems = [
   { path: '/multicadastro', label: 'Multicadastro', icon: Users },
   { path: '/rcv', label: 'RC-V', icon: FileCheck },
   { path: '/tecnologia-logistica', label: 'Tecnologia Logística', icon: Truck },
+  { path: '/tecnologia-risco', label: 'Tecnologia Risco', icon: Settings },
 ];
 
 interface AppSidebarProps {

@@ -28,6 +28,7 @@ import {
   Plus, Edit2, Trash2, Filter, Users, Activity, CheckCircle, XCircle, RotateCcw, CalendarDays
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const STATUS_COLORS: Record<RecordStatus, string> = {
   NOVO: '#94a3b8',
@@ -58,6 +59,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { isAdmin } = useAuth();
 
   const [service, setService] = useState<Service | null>(null);
+  const [serviceMissing, setServiceMissing] = useState(false);
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -75,8 +77,18 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: svc } = await supabase.from('services').select('*').eq('name', serviceName).single();
-    if (!svc) { setLoading(false); return; }
+    setServiceMissing(false);
+    const { data: svc, error: svcErr } = await supabase
+      .from('services')
+      .select('*')
+      .eq('name', serviceName)
+      .single();
+    if (svcErr || !svc) {
+      setService(null);
+      setServiceMissing(true);
+      setLoading(false);
+      return;
+    }
     setService(svc as Service);
     const { data: recs } = await supabase
       .from('records')
@@ -88,6 +100,19 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   };
 
   useEffect(() => { fetchData(); }, [serviceName]);
+
+  const handleCreateService = async () => {
+    if (!isAdmin) return;
+    try {
+      const { error } = await supabase.from('services').insert({ name: serviceName, description: null });
+      if (error) throw error;
+      toast.success('Serviço criado!');
+      fetchData();
+    } catch (e: unknown) {
+      toast.error('Erro ao criar serviço: ' + (e instanceof Error ? e.message : 'Tente novamente'));
+    }
+  };
+
 
   const filtered = records.filter(r => {
     const matchSearch = !search || r.client_name.toLowerCase().includes(search.toLowerCase());
@@ -135,20 +160,23 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   };
 
   const handleSave = async () => {
-    if (!form.client_name.trim() || !service) return;
+    if (!form.client_name.trim()) { toast.error('Informe o nome do cliente'); return; }
+    if (!service) { toast.error('Serviço não carregado'); return; }
     setSaving(true);
     try {
       if (editRecord) {
-        const { error } = await supabase.from('records').update({ ...form }).eq('id', editRecord.id);
+        const { error } = await supabase.from('records').update({ ...form }).eq('id', editRecord.id).select('id').single();
         if (error) throw error;
         toast.success('Registro atualizado!');
       } else {
-        const { error } = await supabase.from('records').insert({ ...form, service_id: service.id });
+        const { error } = await supabase.from('records').insert({ ...form, service_id: service.id }).select('id').single();
         if (error) throw error;
         toast.success('Registro adicionado!');
       }
+      await fetchData();
       setDialogOpen(false);
-      fetchData();
+      setEditRecord(null);
+      setForm(emptyForm);
     } catch (e: unknown) {
       toast.error('Erro ao salvar: ' + (e instanceof Error ? e.message : 'Tente novamente'));
     } finally {
@@ -197,6 +225,22 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           </div>
         ) : (
           <>
+            {serviceMissing && (
+              <div className="p-6 rounded-xl border bg-card">
+                <h2 className="text-lg font-semibold">Serviço não encontrado</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  O serviço <span className="font-medium">{serviceName}</span> não existe no seu Supabase.
+                </p>
+                {isAdmin ? (
+                  <div className="mt-4">
+                    <Button onClick={handleCreateService}>Criar serviço</Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-4">Peça para um administrador criar este serviço.</p>
+                )}
+              </div>
+            )}
+
             {/* KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {kpis.map(kpi => (
@@ -320,7 +364,11 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                         </td>
                       </tr>
                     ) : filtered.map(r => (
-                      <tr key={r.id} className="table-row-hover">
+                      <tr
+                        key={r.id}
+                        className={cn("table-row-hover", isAdmin && "cursor-pointer")}
+                        onClick={() => { if (isAdmin) openEdit(r); }}
+                      >
                         <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
                         <td className="px-3 py-3">
                           {isAdmin ? (
@@ -346,7 +394,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                                 size="icon"
                                 variant="ghost"
                                 className="h-7 w-7"
-                                onClick={() => openEdit(r)}
+                                onClick={(e) => { e.stopPropagation(); openEdit(r); }}
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </Button>
@@ -354,7 +402,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                                 size="icon"
                                 variant="ghost"
                                 className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={() => setDeleteId(r.id)}
+                                onClick={(e) => { e.stopPropagation(); setDeleteId(r.id); }}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>

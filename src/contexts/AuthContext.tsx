@@ -21,13 +21,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<'admin' | 'viewer' | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (userId: string) => {
-    const { data } = await supabase
+  const fetchRole = async (userId: string, fallbackUser?: User | null) => {
+    // 1) Prefer tabela user_roles
+    const { data, error } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
       .single();
-    setUserRole(data?.role ?? 'viewer');
+
+    if (!error && data?.role) {
+      setUserRole(data.role);
+      return;
+    }
+
+    // 2) Fallback: role em app_metadata/user_metadata (muitos projetos usam isso)
+    const metaRole = (fallbackUser?.app_metadata as any)?.role || (fallbackUser?.user_metadata as any)?.role;
+    if (metaRole === 'admin' || metaRole === 'viewer') {
+      setUserRole(metaRole);
+      return;
+    }
+
+    // 3) Default seguro
+    setUserRole('viewer');
   };
 
   useEffect(() => {
@@ -35,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id);
+        fetchRole(session.user.id, session.user);
       } else {
         setUserRole(null);
       }
@@ -46,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id);
+        fetchRole(session.user.id, session.user);
       }
       setLoading(false);
     });

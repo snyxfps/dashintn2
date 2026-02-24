@@ -24,9 +24,12 @@ export const LoginPage: React.FC = () => {
         if (error) toast.error(error.message === 'Invalid login credentials' ? 'E-mail ou senha inválidos' : error.message);
       } else {
         const { error } = await signUp(email, password, fullName);
-        if (error) toast.error(error.message);
-        else toast.success('Conta criada com sucesso! Faça login.');
-        setMode('login');
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Conta criada com sucesso! Faça login.');
+          setMode('login');
+        }
       }
     } finally {
       setLoading(false);
@@ -71,7 +74,8 @@ export const LoginPage: React.FC = () => {
       {/* Right Panel */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl p-8 shadow-2xl">
+          <div className="relative rounded-2xl p-8 shadow-2xl border border-white/10 bg-white/90 backdrop-blur">
+            <div className="absolute inset-0 -z-10 rounded-2xl opacity-60" style={{ background: "radial-gradient(1200px circle at top, rgba(59,130,246,0.18), transparent 55%)" }} />
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center gap-2 mb-6">
               <Layers className="w-5 h-5" style={{ color: 'hsl(222 75% 28%)' }} />
