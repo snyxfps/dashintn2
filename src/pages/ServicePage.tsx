@@ -306,6 +306,21 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     setDialogOpen(true);
   };
 
+  // === NOVO: helper de data por status para exibir no card ===
+  const getStatusDateInfo = (r: ServiceRecord): { label: string; value: string } | null => {
+    if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') {
+      const v = (r.end_date || '').trim();
+      if (!v) return null;
+      return { label: r.status === 'FINALIZADO' ? 'Finalizado' : 'Cancelado', value: v };
+    }
+    if (r.status === 'DEVOLVIDO') {
+      const v = (r.devolucao_date || '').trim();
+      if (!v) return null;
+      return { label: 'Devolvido', value: v };
+    }
+    return null;
+  };
+
   // Retorna lista de campos obrigatórios faltando para permitir o status
   const missingFieldsForStatus = (r: ServiceRecord, toStatus: RecordStatus): string[] => {
     const missing: string[] = [];
@@ -607,17 +622,26 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             <div className="corp-card p-5">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
+
+                <Button variant="outline" size="sm" onClick={() => setShowChart((v) => !v)} className="h-8">
+                  {showChart ? (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-2" />
+                      Ocultar gráfico
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Mostrar gráfico
+                    </>
+                  )}
+                </Button>
               </div>
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
-              >
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                  {visibleKanbanCols.map(col => {
-                    const colRecords = records.filter(r => r.status === col.status);
+                  {visibleKanbanCols.map((col) => {
+                    const colRecords = records.filter((r) => r.status === col.status);
                     const cfg = STATUS_CONFIG[col.status];
 
                     return (
@@ -634,25 +658,35 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
                             {/* Lista com scroll interno */}
                             <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
-                              {colRecords.map(r => (
-                                <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
-                                  <div
-                                    className={cn(
-                                      "corp-card p-3 hover:shadow-md transition-shadow",
-                                      isAdmin ? "cursor-pointer" : "cursor-default"
-                                    )}
-                                    onClick={() => { if (isAdmin) openEdit(r); }}
-                                  >
-                                    <div className="text-xs font-semibold text-foreground leading-tight mb-1">
-                                      {r.client_name}
+                              {colRecords.map((r) => {
+                                const statusDate = getStatusDateInfo(r);
+
+                                return (
+                                  <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
+                                    <div
+                                      className={cn('corp-card p-3 hover:shadow-md transition-shadow', isAdmin ? 'cursor-pointer' : 'cursor-default')}
+                                      onClick={() => {
+                                        if (isAdmin) openEdit(r);
+                                      }}
+                                    >
+                                      <div className="text-xs font-semibold text-foreground leading-tight mb-1">{r.client_name}</div>
+                                      <div className="text-xs text-muted-foreground">{r.owner}</div>
+
+                                      {/* Data principal: início (sempre) */}
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        <span className="opacity-80">Início:</span> {formatDateOnlyBR(r.start_date)}
+                                      </div>
+
+                                      {/* ✅ NOVO: Data por status quando finalizado/cancelado/devolvido */}
+                                      {statusDate && (
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                          <span className="opacity-80">{statusDate.label}:</span> {formatDateOnlyBR(statusDate.value)}
+                                        </div>
+                                      )}
                                     </div>
-                                    <div className="text-xs text-muted-foreground">{r.owner}</div>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      {formatDateOnlyBR(r.start_date)}
-                                    </div>
-                                  </div>
-                                </DraggableCard>
-                              ))}
+                                  </DraggableCard>
+                                );
+                              })}
 
                               {colRecords.length === 0 && (
                                 <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
@@ -668,22 +702,28 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                 </div>
 
                 <DragOverlay>
-                  {activeRecord ? (
-                    <div className="corp-card p-3 w-56 shadow-lg">
-                      <div className="text-xs font-semibold text-foreground leading-tight mb-1">
-                        {activeRecord.client_name}
+                  {activeRecord ? (() => {
+                    const statusDate = getStatusDateInfo(activeRecord);
+                    return (
+                      <div className="corp-card p-3 w-56 shadow-lg">
+                        <div className="text-xs font-semibold text-foreground leading-tight mb-1">{activeRecord.client_name}</div>
+                        <div className="text-xs text-muted-foreground">{activeRecord.owner}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          <span className="opacity-80">Início:</span> {formatDateOnlyBR(activeRecord.start_date)}
+                        </div>
+                        {statusDate && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            <span className="opacity-80">{statusDate.label}:</span> {formatDateOnlyBR(statusDate.value)}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground">{activeRecord.owner}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatDateOnlyBR(activeRecord.start_date)}
-                      </div>
-                    </div>
-                  ) : null}
+                    );
+                  })() : null}
                 </DragOverlay>
               </DndContext>
             </div>
 
-{/* Chart (abaixo e opcional) */}
+            {/* Chart (abaixo e opcional) */}
             {showChart && (
               <div className="corp-card p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Quantidade por status</h3>
