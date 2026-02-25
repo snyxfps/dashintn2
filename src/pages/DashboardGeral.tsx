@@ -2,12 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  ServiceRecord,
-  RecordStatus,
-  STATUS_CONFIG,
-  STATUS_OPTIONS,
-} from "@/types";
+import { ServiceRecord, RecordStatus, STATUS_CONFIG, STATUS_OPTIONS } from "@/types";
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
@@ -96,15 +91,14 @@ export default function DashboardGeral() {
   const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
   const [filterOwner, setFilterOwner] = useState<string>("ALL");
 
-  const [showCharts, setShowCharts] = useState(true);
+  // ✅ melhor UX: abre com leitura simples, gráficos como detalhe
+  const [showCharts, setShowCharts] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
 
     // 1) services (id->name)
-    const { data: servicesData, error: servicesErr } = await supabase
-      .from("services")
-      .select("id,name");
+    const { data: servicesData, error: servicesErr } = await supabase.from("services").select("id,name");
 
     if (servicesErr) {
       console.error(servicesErr);
@@ -116,10 +110,7 @@ export default function DashboardGeral() {
     (servicesData || []).forEach((s: any) => serviceMap.set(String(s.id), String(s.name)));
 
     // 2) records (todos)
-    const { data: recs, error: recErr } = await supabase
-      .from("records")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data: recs, error: recErr } = await supabase.from("records").select("*").order("created_at", { ascending: false });
 
     if (recErr) {
       console.error(recErr);
@@ -127,7 +118,7 @@ export default function DashboardGeral() {
       return;
     }
 
-    const enriched: RecordWithService[] = (recs as ServiceRecord[] || []).map((r) => ({
+    const enriched: RecordWithService[] = ((recs as ServiceRecord[]) || []).map((r) => ({
       ...r,
       service_name: serviceMap.get(String(r.service_id)) || "—",
     }));
@@ -216,14 +207,7 @@ export default function DashboardGeral() {
     const canPrev7 = countPrev7("CANCELADO");
     const canDelta = can7 - canPrev7;
 
-    return {
-      total,
-      open,
-      fin7,
-      finDelta,
-      can7,
-      canDelta,
-    };
+    return { total, open, fin7, finDelta, can7, canDelta };
   }, [filtered, last7Start, prev7Start, today]);
 
   // Distribuição por status (com % + 7d + delta)
@@ -289,9 +273,7 @@ export default function DashboardGeral() {
       const ws = weekStart(d);
       const key = ws.toISOString().slice(0, 10);
 
-      if (!rows[key]) {
-        rows[key] = { key, week: fmtWeek(ws), FINALIZADO: 0, CANCELADO: 0, DEVOLVIDO: 0 };
-      }
+      if (!rows[key]) rows[key] = { key, week: fmtWeek(ws), FINALIZADO: 0, CANCELADO: 0, DEVOLVIDO: 0 };
       rows[key][r.status] += 1;
     }
 
@@ -321,7 +303,9 @@ export default function DashboardGeral() {
       const mid = Math.floor(a.length / 2);
       return a.length % 2 === 0 ? (a[mid - 1] + a[mid]) / 2 : a[mid];
     };
+
     const mean = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+
     const p75 = (arr: number[]) => {
       if (!arr.length) return 0;
       const a = [...arr].sort((x, y) => x - y);
@@ -357,8 +341,14 @@ export default function DashboardGeral() {
       const b = buckets.find((x) => age >= x.from && age < x.to);
       if (b) b.count += 1;
     }
+
     return buckets;
   }, [filtered, today]);
+
+  const totalOpen45Plus = useMemo(() => {
+    const b = agingBuckets.find((x) => x.bucket === "45+");
+    return b?.count || 0;
+  }, [agingBuckets]);
 
   // Ranking por owner (carga + finalizados semana + lead time médio 30d)
   const ownerRanking = useMemo(() => {
@@ -367,7 +357,10 @@ export default function DashboardGeral() {
     const last30Start = new Date(today);
     last30Start.setDate(last30Start.getDate() - 30);
 
-    const by: Record<string, { owner: string; in_progress: number; finalized_week: number; lead_sum: number; lead_n: number }> = {};
+    const by: Record<
+      string,
+      { owner: string; in_progress: number; finalized_week: number; lead_sum: number; lead_n: number }
+    > = {};
 
     const ensure = (owner: string) => {
       const key = owner?.trim() ? owner.trim() : "—";
@@ -394,6 +387,7 @@ export default function DashboardGeral() {
           o.lead_n += 1;
         }
       }
+
       if (r.status === "DEVOLVIDO") {
         const end = toDateOnly(r.devolucao_date);
         const start = toDateOnly(r.start_date);
@@ -451,11 +445,23 @@ export default function DashboardGeral() {
       .slice(-12);
   }, [filtered]);
 
+  const meetingsSummary = useMemo(() => {
+    // soma da semana atual (pela label weekStart)
+    const currentKey = thisWeekStart.toISOString().slice(0, 10);
+    const row = meetingsWeekly.find((x: any) => x.key === currentKey);
+    return {
+      weekLabel: fmtWeek(thisWeekStart),
+      reunioes: row?.reunioes || 0,
+      convertidas: row?.convertidas || 0,
+      conversao: row?.conversao || 0,
+    };
+  }, [meetingsWeekly, thisWeekStart]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <AppHeader
         title="Dashboard (Geral)"
-        subtitle="Visão consolidada: throughput, lead time, aging, ranking e reuniões"
+        subtitle="Visão consolidada com leitura executiva + detalhes em gráficos"
         onMenuClick={onMenuClick}
       />
 
@@ -524,11 +530,18 @@ export default function DashboardGeral() {
                     ) : (
                       <>
                         <BarChart3 className="w-4 h-4 mr-2" />
-                        Mostrar gráficos
+                        Ver gráficos (detalhe)
                       </>
                     )}
                   </Button>
                 </div>
+              </div>
+
+              {/* ✅ explicação curta dos filtros */}
+              <div className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium">Serviço</span> muda o recorte (ex.: RC-V, SMP).{" "}
+                <span className="font-medium">Status</span> filtra pelo estado atual do card.{" "}
+                <span className="font-medium">Responsável</span> mostra carga e performance por pessoa.
               </div>
             </div>
 
@@ -536,7 +549,7 @@ export default function DashboardGeral() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="kpi-card">
                 <div className="text-2xl font-bold text-foreground">{kpiTop.total}</div>
-                <div className="text-xs text-muted-foreground">Total (filtro)</div>
+                <div className="text-xs text-muted-foreground">Total (recorte atual)</div>
               </div>
 
               <div className="kpi-card">
@@ -552,7 +565,7 @@ export default function DashboardGeral() {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Finalizados (7d) {kpiTop.fin7 < threshold.finalizadosMinWeek ? "• ruim" : ""}
+                  Finalizados (7d) {kpiTop.fin7 < threshold.finalizadosMinWeek ? "• abaixo do ideal" : "• OK"}
                 </div>
               </div>
 
@@ -564,7 +577,125 @@ export default function DashboardGeral() {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Cancelados (7d) {kpiTop.can7 > threshold.canceladosMaxWeek ? "• alerta" : ""}
+                  Cancelados (7d) {kpiTop.can7 > threshold.canceladosMaxWeek ? "• atenção" : "• OK"}
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ Resumo executivo (texto) */}
+            <div className="corp-card p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Resumo executivo</h3>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Leitura rápida (sem gráficos) do que está acontecendo com base nos filtros acima.
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Semana atual começa em <span className="font-medium">{fmtWeek(thisWeekStart)}</span>.
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* 1) Distribuição */}
+                <div className="rounded-xl border bg-background/40 p-4">
+                  <div className="text-xs font-semibold text-foreground mb-2">1) Distribuição por status</div>
+
+                  <div className="text-sm text-foreground leading-relaxed">
+                    Atualmente temos <span className="font-semibold">{kpiTop.total}</span> integrações no recorte selecionado.
+                    Destas, <span className="font-semibold">{kpiTop.open}</span> estão abertas (NOVO/REUNIÃO/ANDAMENTO) —
+                    isso é o <span className="font-semibold">estoque</span> de trabalho pendente.
+                  </div>
+
+                  <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                    Impacto: quanto maior o estoque aberto, maior risco de fila, atraso e pressão em SLA.
+                  </div>
+                </div>
+
+                {/* 2) Produção e perda */}
+                <div className="rounded-xl border bg-background/40 p-4">
+                  <div className="text-xs font-semibold text-foreground mb-2">2) Produção e perda (últimos 7 dias)</div>
+
+                  <div className="text-sm text-foreground leading-relaxed">
+                    Nos últimos 7 dias, foram <span className="font-semibold">{kpiTop.fin7}</span> finalizadas
+                    ({kpiTop.finDelta >= 0 ? "↑" : "↓"}{" "}
+                    <span className={cn("font-semibold", kpiTop.finDelta >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                      {kpiTop.finDelta >= 0 ? `+${kpiTop.finDelta}` : kpiTop.finDelta}
+                    </span>{" "}
+                    vs semana anterior).
+                    No mesmo período, <span className="font-semibold">{kpiTop.can7}</span> foram canceladas
+                    ({kpiTop.canDelta >= 0 ? "↑" : "↓"}{" "}
+                    <span className={cn("font-semibold", kpiTop.canDelta >= 0 ? "text-rose-600" : "text-emerald-600")}>
+                      {kpiTop.canDelta >= 0 ? `+${kpiTop.canDelta}` : kpiTop.canDelta}
+                    </span>{" "}
+                    vs semana anterior).
+                  </div>
+
+                  <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                    Impacto: finalizações mostram entrega. Cancelamentos indicam perda (desalinhamento, desistência ou erro de entrada).
+                    Se cancelamentos sobem, vale revisar triagem e critérios de aceite.
+                  </div>
+
+                  <div className="mt-2 text-xs">
+                    {kpiTop.fin7 < threshold.finalizadosMinWeek ? (
+                      <span className="text-rose-600 font-medium">
+                        Alerta: finalizações abaixo de {threshold.finalizadosMinWeek}/7d — backlog tende a crescer.
+                      </span>
+                    ) : (
+                      <span className="text-emerald-600 font-medium">OK: ritmo de finalização saudável.</span>
+                    )}
+                    {kpiTop.can7 > threshold.canceladosMaxWeek && (
+                      <span className="text-amber-600 font-medium">
+                        {" "}
+                        • Atenção: cancelamentos acima de {threshold.canceladosMaxWeek}/7d — investigar causas.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3) Aging / SLA */}
+                <div className="rounded-xl border bg-background/40 p-4">
+                  <div className="text-xs font-semibold text-foreground mb-2">3) Risco de SLA (idade dos abertos)</div>
+
+                  <div className="text-sm text-foreground leading-relaxed">
+                    O principal sinal de risco é o bucket <span className="font-semibold">45+ dias</span>. Atualmente há{" "}
+                    <span className={cn("font-semibold", totalOpen45Plus > 0 ? "text-amber-600" : "text-emerald-600")}>
+                      {totalOpen45Plus}
+                    </span>{" "}
+                    itens nessa faixa.
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {agingBuckets.map((b) => (
+                      <span key={b.bucket} className="text-xs px-2 py-1 rounded-md border text-muted-foreground">
+                        {b.bucket}: <span className="font-semibold text-foreground">{b.count}</span>
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                    Impacto: itens 45+ aumentam chance de escalonamento e SLA estourado. Ação típica: priorizar 45+ e destravar dependências.
+                  </div>
+                </div>
+
+                {/* 4) Reuniões */}
+                <div className="rounded-xl border bg-background/40 p-4">
+                  <div className="text-xs font-semibold text-foreground mb-2">4) Reuniões (resultado vs ritual)</div>
+
+                  <div className="text-sm text-foreground leading-relaxed">
+                    Na semana atual ({meetingsSummary.weekLabel}), tivemos{" "}
+                    <span className="font-semibold">{meetingsSummary.reunioes}</span> reuniões e{" "}
+                    <span className="font-semibold">{meetingsSummary.convertidas}</span> viraram andamento/finalização em até 7 dias
+                    (conversão de <span className="font-semibold">{meetingsSummary.conversao}%</span>).
+                  </div>
+
+                  <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                    Impacto: conversão baixa sugere reunião sem ação clara. Ação: padronizar “decisão + próximo passo + owner + data”.
+                  </div>
+
+                  <div className="mt-2 text-[11px] text-muted-foreground">
+                    Obs.: conversão usa <span className="font-medium">updated_at</span> como proxy (não há histórico de transição).
+                  </div>
                 </div>
               </div>
             </div>
@@ -837,7 +968,9 @@ export default function DashboardGeral() {
                       <tr key={r.id} className="table-row-hover">
                         <td className="px-5 py-3 text-xs text-muted-foreground">{r.service_name}</td>
                         <td className="px-3 py-3 font-medium text-foreground">{r.client_name}</td>
-                        <td className="px-3 py-3"><StatusBadge status={r.status} /></td>
+                        <td className="px-3 py-3">
+                          <StatusBadge status={r.status} />
+                        </td>
                         <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || "-"}</td>
                         <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
                           <div className="flex items-center gap-1.5">
