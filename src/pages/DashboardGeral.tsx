@@ -99,7 +99,6 @@ export default function DashboardGeral() {
 
     // 1) services (id->name)
     const { data: servicesData, error: servicesErr } = await supabase.from("services").select("id,name");
-
     if (servicesErr) {
       console.error(servicesErr);
       setLoading(false);
@@ -111,7 +110,6 @@ export default function DashboardGeral() {
 
     // 2) records (todos)
     const { data: recs, error: recErr } = await supabase.from("records").select("*").order("created_at", { ascending: false });
-
     if (recErr) {
       console.error(recErr);
       setLoading(false);
@@ -150,100 +148,107 @@ export default function DashboardGeral() {
     });
   }, [records, filterService, filterStatus, filterOwner]);
 
-  // tempo
+  // ======================
+  // Tempo (quinzenal rolling)
+  // ======================
   const today = useMemo(() => startOfDay(new Date()), []);
-  const last7Start = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - 7);
-    return d;
-  }, [today]);
-  const prev7Start = useMemo(() => {
+  const last14Start = useMemo(() => {
     const d = new Date(today);
     d.setDate(d.getDate() - 14);
     return d;
   }, [today]);
+  const prev14Start = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 28);
+    return d;
+  }, [today]);
+
   const thisWeekStart = useMemo(() => weekStart(today), [today]);
 
-  // metas/limites do “Geral” (ajuste como quiser)
+  // metas/limites (14 dias) — ajuste conforme sua operação
   const threshold = {
-    finalizadosMinWeek: 10,
-    canceladosMaxWeek: 5,
+    finalizadosMin14d: 20,
+    canceladosMax14d: 10,
   };
 
-  // KPIs topo (Geral)
+  // ======================
+  // KPIs topo (Geral) — 14d vs 14d anteriores
+  // ======================
   const kpiTop = useMemo(() => {
     const total = filtered.length;
     const open = filtered.filter((r) => ["NOVO", "REUNIAO", "ANDAMENTO"].includes(r.status)).length;
 
-    const countLast7 = (status: RecordStatus) => {
+    const countLast14 = (status: RecordStatus) => {
       let c = 0;
       for (const r of filtered) {
         if (r.status !== status) continue;
         const d = getEventDateForStatus(r);
         if (!d) continue;
         const ts = d.getTime();
-        if (ts >= last7Start.getTime() && ts < today.getTime()) c += 1;
+        if (ts >= last14Start.getTime() && ts < today.getTime()) c += 1;
       }
       return c;
     };
 
-    const countPrev7 = (status: RecordStatus) => {
+    const countPrev14 = (status: RecordStatus) => {
       let c = 0;
       for (const r of filtered) {
         if (r.status !== status) continue;
         const d = getEventDateForStatus(r);
         if (!d) continue;
         const ts = d.getTime();
-        if (ts >= prev7Start.getTime() && ts < last7Start.getTime()) c += 1;
+        if (ts >= prev14Start.getTime() && ts < last14Start.getTime()) c += 1;
       }
       return c;
     };
 
-    const fin7 = countLast7("FINALIZADO");
-    const finPrev7 = countPrev7("FINALIZADO");
-    const finDelta = fin7 - finPrev7;
+    const fin14 = countLast14("FINALIZADO");
+    const finPrev14 = countPrev14("FINALIZADO");
+    const finDelta14 = fin14 - finPrev14;
 
-    const can7 = countLast7("CANCELADO");
-    const canPrev7 = countPrev7("CANCELADO");
-    const canDelta = can7 - canPrev7;
+    const can14 = countLast14("CANCELADO");
+    const canPrev14 = countPrev14("CANCELADO");
+    const canDelta14 = can14 - canPrev14;
 
-    return { total, open, fin7, finDelta, can7, canDelta };
-  }, [filtered, last7Start, prev7Start, today]);
+    return { total, open, fin14, finDelta14, can14, canDelta14 };
+  }, [filtered, last14Start, prev14Start, today]);
 
-  // Distribuição por status (com % + 7d + delta)
+  // ======================
+  // Distribuição por status (com % + 14d + delta)
+  // ======================
   const statusContextData = useMemo(() => {
     const total = filtered.length || 1;
 
-    const last7By: Record<string, number> = {};
-    const prev7By: Record<string, number> = {};
+    const last14By: Record<string, number> = {};
+    const prev14By: Record<string, number> = {};
 
     for (const r of filtered) {
       const d = getEventDateForStatus(r);
       if (!d) continue;
       const ts = d.getTime();
 
-      if (ts >= last7Start.getTime() && ts < today.getTime()) {
-        last7By[r.status] = (last7By[r.status] || 0) + 1;
+      if (ts >= last14Start.getTime() && ts < today.getTime()) {
+        last14By[r.status] = (last14By[r.status] || 0) + 1;
       }
-      if (ts >= prev7Start.getTime() && ts < last7Start.getTime()) {
-        prev7By[r.status] = (prev7By[r.status] || 0) + 1;
+      if (ts >= prev14Start.getTime() && ts < last14Start.getTime()) {
+        prev14By[r.status] = (prev14By[r.status] || 0) + 1;
       }
     }
 
     return STATUS_OPTIONS.map((s) => {
       const count = filtered.filter((r) => r.status === s).length;
       const pct = (count / total) * 100;
-      const last7 = last7By[s] || 0;
-      const prev7 = prev7By[s] || 0;
-      const delta = last7 - prev7;
+      const last14 = last14By[s] || 0;
+      const prev14 = prev14By[s] || 0;
+      const delta14 = last14 - prev14;
 
       const alert =
         s === "FINALIZADO"
-          ? last7 < threshold.finalizadosMinWeek
+          ? last14 < threshold.finalizadosMin14d
             ? "ruim"
             : "ok"
           : s === "CANCELADO"
-            ? last7 > threshold.canceladosMaxWeek
+            ? last14 > threshold.canceladosMax14d
               ? "alerta"
               : "ok"
             : "ok";
@@ -253,15 +258,17 @@ export default function DashboardGeral() {
         name: STATUS_CONFIG[s].label,
         count,
         pct,
-        last7,
-        delta,
+        last14,
+        delta14,
         alert,
         color: STATUS_COLORS[s],
       };
     });
-  }, [filtered, last7Start, prev7Start, today]);
+  }, [filtered, last14Start, prev14Start, today]);
 
-  // Throughput semanal (últimas 12 semanas) - stacked
+  // ======================
+  // Throughput semanal (últimas 12 semanas) — gráfico detalhe
+  // ======================
   const throughputWeekly = useMemo(() => {
     const rows: Record<string, any> = {};
 
@@ -280,7 +287,9 @@ export default function DashboardGeral() {
     return Object.values(rows).sort((a: any, b: any) => (a.key > b.key ? 1 : -1)).slice(-12);
   }, [filtered]);
 
-  // Lead time (dias) - média/mediana/P75 por status terminal
+  // ======================
+  // Lead time (dias) — média/mediana/P75 por status terminal
+  // ======================
   const leadTimeStats = useMemo(() => {
     const buckets: Record<string, number[]> = { FINALIZADO: [], CANCELADO: [], DEVOLVIDO: [] };
 
@@ -324,7 +333,9 @@ export default function DashboardGeral() {
     }));
   }, [filtered]);
 
+  // ======================
   // Aging buckets (abertos)
+  // ======================
   const agingBuckets = useMemo(() => {
     const open = filtered.filter((r) => ["NOVO", "REUNIAO", "ANDAMENTO"].includes(r.status));
     const buckets = [
@@ -350,17 +361,17 @@ export default function DashboardGeral() {
     return b?.count || 0;
   }, [agingBuckets]);
 
+  // ======================
   // Ranking por owner (carga + finalizados semana + lead time médio 30d)
+  // ======================
   const ownerRanking = useMemo(() => {
     const open = filtered.filter((r) => ["NOVO", "REUNIAO", "ANDAMENTO"].includes(r.status));
 
     const last30Start = new Date(today);
     last30Start.setDate(last30Start.getDate() - 30);
 
-    const by: Record<
-      string,
-      { owner: string; in_progress: number; finalized_week: number; lead_sum: number; lead_n: number }
-    > = {};
+    const by: Record<string, { owner: string; in_progress: number; finalized_week: number; lead_sum: number; lead_n: number }> =
+      {};
 
     const ensure = (owner: string) => {
       const key = owner?.trim() ? owner.trim() : "—";
@@ -408,7 +419,9 @@ export default function DashboardGeral() {
     [ownerRanking]
   );
 
+  // ======================
   // Reuniões: volume + conversão (≤7d, proxy)
+  // ======================
   const meetingsWeekly = useMemo(() => {
     const rows: Record<string, any> = {};
     const X = 7;
@@ -446,7 +459,6 @@ export default function DashboardGeral() {
   }, [filtered]);
 
   const meetingsSummary = useMemo(() => {
-    // soma da semana atual (pela label weekStart)
     const currentKey = thisWeekStart.toISOString().slice(0, 10);
     const row = meetingsWeekly.find((x: any) => x.key === currentKey);
     return {
@@ -537,7 +549,7 @@ export default function DashboardGeral() {
                 </div>
               </div>
 
-              {/* ✅ explicação curta dos filtros */}
+              {/* explicação curta dos filtros */}
               <div className="mt-2 text-xs text-muted-foreground leading-relaxed">
                 <span className="font-medium">Serviço</span> muda o recorte (ex.: RC-V, SMP).{" "}
                 <span className="font-medium">Status</span> filtra pelo estado atual do card.{" "}
@@ -545,7 +557,7 @@ export default function DashboardGeral() {
               </div>
             </div>
 
-            {/* KPIs topo */}
+            {/* KPIs topo (14d) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="kpi-card">
                 <div className="text-2xl font-bold text-foreground">{kpiTop.total}</div>
@@ -559,30 +571,30 @@ export default function DashboardGeral() {
 
               <div className="kpi-card">
                 <div className="flex items-baseline gap-2">
-                  <div className="text-2xl font-bold text-foreground">{kpiTop.fin7}</div>
-                  <div className={cn("text-xs", kpiTop.finDelta >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                    {kpiTop.finDelta >= 0 ? `+${kpiTop.finDelta}` : kpiTop.finDelta} (7d)
+                  <div className="text-2xl font-bold text-foreground">{kpiTop.fin14}</div>
+                  <div className={cn("text-xs", kpiTop.finDelta14 >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                    {kpiTop.finDelta14 >= 0 ? `+${kpiTop.finDelta14}` : kpiTop.finDelta14} (14d)
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Finalizados (7d) {kpiTop.fin7 < threshold.finalizadosMinWeek ? "• abaixo do ideal" : "• OK"}
+                  Finalizados (14d) {kpiTop.fin14 < threshold.finalizadosMin14d ? "• abaixo do ideal" : "• OK"}
                 </div>
               </div>
 
               <div className="kpi-card">
                 <div className="flex items-baseline gap-2">
-                  <div className="text-2xl font-bold text-foreground">{kpiTop.can7}</div>
-                  <div className={cn("text-xs", kpiTop.canDelta >= 0 ? "text-rose-600" : "text-emerald-600")}>
-                    {kpiTop.canDelta >= 0 ? `+${kpiTop.canDelta}` : kpiTop.canDelta} (7d)
+                  <div className="text-2xl font-bold text-foreground">{kpiTop.can14}</div>
+                  <div className={cn("text-xs", kpiTop.canDelta14 >= 0 ? "text-rose-600" : "text-emerald-600")}>
+                    {kpiTop.canDelta14 >= 0 ? `+${kpiTop.canDelta14}` : kpiTop.canDelta14} (14d)
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Cancelados (7d) {kpiTop.can7 > threshold.canceladosMaxWeek ? "• atenção" : "• OK"}
+                  Cancelados (14d) {kpiTop.can14 > threshold.canceladosMax14d ? "• atenção" : "• OK"}
                 </div>
               </div>
             </div>
 
-            {/* ✅ Resumo executivo (texto) */}
+            {/* Resumo executivo (texto) */}
             <div className="corp-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -592,71 +604,63 @@ export default function DashboardGeral() {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Semana atual começa em <span className="font-medium">{fmtWeek(thisWeekStart)}</span>.
+                  Período atual: <span className="font-medium">últimos 14 dias</span> (vs 14 dias anteriores).
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* 1) Distribuição */}
                 <div className="rounded-xl border bg-background/40 p-4">
-                  <div className="text-xs font-semibold text-foreground mb-2">1) Distribuição por status</div>
-
+                  <div className="text-xs font-semibold text-foreground mb-2">1) Estoque de trabalho (abertos)</div>
                   <div className="text-sm text-foreground leading-relaxed">
                     Atualmente temos <span className="font-semibold">{kpiTop.total}</span> integrações no recorte selecionado.
                     Destas, <span className="font-semibold">{kpiTop.open}</span> estão abertas (NOVO/REUNIÃO/ANDAMENTO) —
                     isso é o <span className="font-semibold">estoque</span> de trabalho pendente.
                   </div>
-
                   <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
                     Impacto: quanto maior o estoque aberto, maior risco de fila, atraso e pressão em SLA.
                   </div>
                 </div>
 
-                {/* 2) Produção e perda */}
                 <div className="rounded-xl border bg-background/40 p-4">
-                  <div className="text-xs font-semibold text-foreground mb-2">2) Produção e perda (últimos 7 dias)</div>
-
+                  <div className="text-xs font-semibold text-foreground mb-2">2) Produção e perda (últimos 14 dias)</div>
                   <div className="text-sm text-foreground leading-relaxed">
-                    Nos últimos 7 dias, foram <span className="font-semibold">{kpiTop.fin7}</span> finalizadas
-                    ({kpiTop.finDelta >= 0 ? "↑" : "↓"}{" "}
-                    <span className={cn("font-semibold", kpiTop.finDelta >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                      {kpiTop.finDelta >= 0 ? `+${kpiTop.finDelta}` : kpiTop.finDelta}
+                    Nos últimos 14 dias, foram <span className="font-semibold">{kpiTop.fin14}</span> finalizadas
+                    ({kpiTop.finDelta14 >= 0 ? "↑" : "↓"}{" "}
+                    <span className={cn("font-semibold", kpiTop.finDelta14 >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                      {kpiTop.finDelta14 >= 0 ? `+${kpiTop.finDelta14}` : kpiTop.finDelta14}
                     </span>{" "}
-                    vs semana anterior).
-                    No mesmo período, <span className="font-semibold">{kpiTop.can7}</span> foram canceladas
-                    ({kpiTop.canDelta >= 0 ? "↑" : "↓"}{" "}
-                    <span className={cn("font-semibold", kpiTop.canDelta >= 0 ? "text-rose-600" : "text-emerald-600")}>
-                      {kpiTop.canDelta >= 0 ? `+${kpiTop.canDelta}` : kpiTop.canDelta}
+                    vs 14 dias anteriores).
+                    No mesmo período, <span className="font-semibold">{kpiTop.can14}</span> foram canceladas
+                    ({kpiTop.canDelta14 >= 0 ? "↑" : "↓"}{" "}
+                    <span className={cn("font-semibold", kpiTop.canDelta14 >= 0 ? "text-rose-600" : "text-emerald-600")}>
+                      {kpiTop.canDelta14 >= 0 ? `+${kpiTop.canDelta14}` : kpiTop.canDelta14}
                     </span>{" "}
-                    vs semana anterior).
+                    vs 14 dias anteriores).
                   </div>
 
                   <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                    Impacto: finalizações mostram entrega. Cancelamentos indicam perda (desalinhamento, desistência ou erro de entrada).
-                    Se cancelamentos sobem, vale revisar triagem e critérios de aceite.
+                    Impacto: finalizações mostram entrega. Cancelamentos indicam perda. Se cancelamentos sobem, vale revisar triagem e critérios de aceite.
                   </div>
 
                   <div className="mt-2 text-xs">
-                    {kpiTop.fin7 < threshold.finalizadosMinWeek ? (
+                    {kpiTop.fin14 < threshold.finalizadosMin14d ? (
                       <span className="text-rose-600 font-medium">
-                        Alerta: finalizações abaixo de {threshold.finalizadosMinWeek}/7d — backlog tende a crescer.
+                        Alerta: finalizações abaixo de {threshold.finalizadosMin14d}/14d — backlog tende a crescer.
                       </span>
                     ) : (
                       <span className="text-emerald-600 font-medium">OK: ritmo de finalização saudável.</span>
                     )}
-                    {kpiTop.can7 > threshold.canceladosMaxWeek && (
+                    {kpiTop.can14 > threshold.canceladosMax14d && (
                       <span className="text-amber-600 font-medium">
                         {" "}
-                        • Atenção: cancelamentos acima de {threshold.canceladosMaxWeek}/7d — investigar causas.
+                        • Atenção: cancelamentos acima de {threshold.canceladosMax14d}/14d — investigar causas.
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* 3) Aging / SLA */}
                 <div className="rounded-xl border bg-background/40 p-4">
                   <div className="text-xs font-semibold text-foreground mb-2">3) Risco de SLA (idade dos abertos)</div>
-
                   <div className="text-sm text-foreground leading-relaxed">
                     O principal sinal de risco é o bucket <span className="font-semibold">45+ dias</span>. Atualmente há{" "}
                     <span className={cn("font-semibold", totalOpen45Plus > 0 ? "text-amber-600" : "text-emerald-600")}>
@@ -678,10 +682,8 @@ export default function DashboardGeral() {
                   </div>
                 </div>
 
-                {/* 4) Reuniões */}
                 <div className="rounded-xl border bg-background/40 p-4">
                   <div className="text-xs font-semibold text-foreground mb-2">4) Reuniões (resultado vs ritual)</div>
-
                   <div className="text-sm text-foreground leading-relaxed">
                     Na semana atual ({meetingsSummary.weekLabel}), tivemos{" "}
                     <span className="font-semibold">{meetingsSummary.reunioes}</span> reuniões e{" "}
@@ -707,11 +709,11 @@ export default function DashboardGeral() {
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Distribuição por status (contexto)</h3>
-                      <div className="text-xs text-muted-foreground">% do total + tendência 7d vs 7d anteriores + alertas</div>
+                      <div className="text-xs text-muted-foreground">% do total + tendência 14d vs 14d anteriores + alertas</div>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="px-2 py-1 rounded-md border">Finalizados &lt; {threshold.finalizadosMinWeek}/7d = ruim</span>
-                      <span className="px-2 py-1 rounded-md border">Cancelados &gt; {threshold.canceladosMaxWeek}/7d = alerta</span>
+                      <span className="px-2 py-1 rounded-md border">Finalizados &lt; {threshold.finalizadosMin14d}/14d = ruim</span>
+                      <span className="px-2 py-1 rounded-md border">Cancelados &gt; {threshold.canceladosMax14d}/14d = alerta</span>
                     </div>
                   </div>
 
@@ -723,8 +725,8 @@ export default function DashboardGeral() {
                             <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Status</th>
                             <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Qtd</th>
                             <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">%</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">7d</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Δ 7d</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">14d</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Δ 14d</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -749,9 +751,9 @@ export default function DashboardGeral() {
                               </td>
                               <td className="px-3 py-2 text-right text-xs text-foreground font-medium">{s.count}</td>
                               <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.pct.toFixed(0)}%</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.last7}</td>
-                              <td className={cn("px-3 py-2 text-right text-xs", s.delta >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                                {s.delta >= 0 ? `+${s.delta}` : s.delta}
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.last14}</td>
+                              <td className={cn("px-3 py-2 text-right text-xs", s.delta14 >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                {s.delta14 >= 0 ? `+${s.delta14}` : s.delta14}
                               </td>
                             </tr>
                           ))}
