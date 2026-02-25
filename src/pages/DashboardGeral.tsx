@@ -18,7 +18,6 @@ import {
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, CalendarDays } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { formatDateOnlyBR } from "@/lib/dateOnly";
 
 interface OutletContext {
@@ -71,6 +70,7 @@ const fmtWeek = (d: Date) => {
   return `${dd}/${mm}`;
 };
 
+// data "relevante" por status (mesma lógica que você já usa nos cálculos)
 const getEventDateForStatus = (r: ServiceRecord): Date | null => {
   if (r.status === "FINALIZADO" || r.status === "CANCELADO") return toDateOnly(r.end_date);
   if (r.status === "DEVOLVIDO") return toDateOnly(r.devolucao_date);
@@ -89,6 +89,10 @@ export default function DashboardGeral() {
   const [filterService, setFilterService] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
   const [filterOwner, setFilterOwner] = useState<string>("ALL");
+
+  // ✅ filtro de data (date input trabalha com YYYY-MM-DD)
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
 
   const fetchAll = async () => {
     setLoading(true);
@@ -137,6 +141,12 @@ export default function DashboardGeral() {
     return unique.sort((a, b) => a.localeCompare(b));
   }, [records]);
 
+  const today = useMemo(() => startOfDay(new Date()), []);
+
+  // parsed dates do filtro (startOfDay pra comparar certinho)
+  const dateFrom = useMemo(() => (filterDateFrom ? startOfDay(new Date(filterDateFrom)) : null), [filterDateFrom]);
+  const dateTo = useMemo(() => (filterDateTo ? startOfDay(new Date(filterDateTo)) : null), [filterDateTo]);
+
   const filtered = useMemo(() => {
     return records.filter((r) => {
       const okService = filterService === "ALL" || (r.service_name || "—") === filterService;
@@ -145,14 +155,31 @@ export default function DashboardGeral() {
       const ownerTrim = (r.owner || "").trim();
       const okOwner = filterOwner === "ALL" || ownerTrim === filterOwner;
 
-      return okService && okStatus && okOwner;
-    });
-  }, [records, filterService, filterStatus, filterOwner]);
+      // ✅ filtro por data usando a data "relevante" do registro
+      const ev = getEventDateForStatus(r);
+      let okDate = true;
 
-  const today = useMemo(() => startOfDay(new Date()), []);
+      if (dateFrom || dateTo) {
+        // se o usuário ativou filtro de data, e o registro não tem data, a gente remove
+        if (!ev) okDate = false;
+        else {
+          const evDay = startOfDay(ev);
+          if (dateFrom && evDay.getTime() < dateFrom.getTime()) okDate = false;
+          if (dateTo) {
+            // inclusive: <= dateTo
+            const endInclusive = new Date(dateTo);
+            endInclusive.setDate(endInclusive.getDate() + 1); // soma 1 dia e usa < (exclusive)
+            if (evDay.getTime() >= endInclusive.getTime()) okDate = false;
+          }
+        }
+      }
+
+      return okService && okStatus && okOwner && okDate;
+    });
+  }, [records, filterService, filterStatus, filterOwner, dateFrom, dateTo]);
 
   // ============
-  // GRÁFICO 1: Distribuição por status (qtd atual)
+  // GRÁFICO 1: Distribuição por status
   // ============
   const statusDist = useMemo(() => {
     const totalByStatus: Record<string, number> = {};
@@ -167,7 +194,7 @@ export default function DashboardGeral() {
   }, [filtered]);
 
   // ============
-  // GRÁFICO 2: Throughput semanal (últimas 12 semanas) - stacked
+  // GRÁFICO 2: Throughput semanal (últimas 12 semanas)
   // ============
   const throughputWeekly = useMemo(() => {
     const rows: Record<string, any> = {};
@@ -268,6 +295,33 @@ export default function DashboardGeral() {
                   </SelectContent>
                 </Select>
 
+                {/* ✅ filtro de data */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-md border px-2 h-8">
+                    <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="date"
+                      value={filterDateFrom}
+                      onChange={(e) => setFilterDateFrom(e.target.value)}
+                      className="bg-transparent text-xs outline-none"
+                      aria-label="Data início"
+                    />
+                  </div>
+
+                  <span className="text-xs text-muted-foreground">até</span>
+
+                  <div className="flex items-center gap-2 rounded-md border px-2 h-8">
+                    <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="date"
+                      value={filterDateTo}
+                      onChange={(e) => setFilterDateTo(e.target.value)}
+                      className="bg-transparent text-xs outline-none"
+                      aria-label="Data fim"
+                    />
+                  </div>
+                </div>
+
                 <div className="ml-auto text-xs text-muted-foreground">{filtered.length} registros</div>
               </div>
             </div>
@@ -278,7 +332,7 @@ export default function DashboardGeral() {
               <div className="corp-card p-5">
                 <div className="mb-3">
                   <h3 className="text-sm font-semibold text-foreground">Distribuição por status</h3>
-                  <div className="text-xs text-muted-foreground">Quantidade atual no recorte</div>
+                  <div className="text-xs text-muted-foreground">Quantidade no recorte (inclui filtro de data)</div>
                 </div>
 
                 <ResponsiveContainer width="100%" height={280}>
@@ -321,7 +375,7 @@ export default function DashboardGeral() {
               <div className="corp-card p-5 xl:col-span-2">
                 <div className="mb-3">
                   <h3 className="text-sm font-semibold text-foreground">Aging (abertos)</h3>
-                  <div className="text-xs text-muted-foreground">Buckets 0–15 / 15–25 / 25–45 / 45+</div>
+                  <div className="text-xs text-muted-foreground">0–15 / 15–25 / 25–45 / 45+</div>
                 </div>
 
                 <ResponsiveContainer width="100%" height={260}>
@@ -336,7 +390,7 @@ export default function DashboardGeral() {
               </div>
             </div>
 
-            {/* tabela simples (geral) */}
+            {/* lista */}
             <div className="corp-card overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
