@@ -6,9 +6,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoginPage } from "@/components/LoginPage";
 import { AppLayout } from "@/components/AppLayout";
-import DashboardPage from "@/pages/Dashboard";
+import DashboardPage from "@/pages/DashboardGeral";
 import { ServicePage } from "@/pages/ServicePage";
 import NotFound from "./pages/NotFound";
+import DashboardGeral from "@/pages/DashboardGeral";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,7 @@ const ProtectedRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<AppLayout />}>
-        <Route index element={<DashboardPage />} />
+        <Route index element={<DashboardGeral />} />
         <Route path="smp" element={<ServicePage serviceName="SMP" />} />
         <Route path="multicadastro" element={<ServicePage serviceName="Multicadastro" />} />
         <Route path="rcv" element={<ServicePage serviceName="RC-V" />} />
