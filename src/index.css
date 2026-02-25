@@ -37,7 +37,7 @@
     --input: 220 15% 88%;
     --ring: 222 75% 28%;
 
-    --radius: 0.625rem;
+    --radius: 0.85rem;
 
     /* Status Colors */
     --status-novo: 220 10% 60%;
@@ -61,8 +61,8 @@
     --sidebar-border: 222 50% 25%;
 
     /* Shadows */
-    --shadow-card: 0 2px 8px -2px hsl(220 30% 12% / 0.08), 0 1px 3px hsl(220 30% 12% / 0.05);
-    --shadow-elevated: 0 8px 24px -4px hsl(222 75% 28% / 0.15), 0 2px 8px hsl(220 30% 12% / 0.06);
+    --shadow-card: 0 1px 2px hsl(220 30% 12% / 0.06), 0 8px 24px -16px hsl(220 30% 12% / 0.12);
+    --shadow-elevated: 0 12px 32px -18px hsl(222 75% 28% / 0.18), 0 2px 8px hsl(220 30% 12% / 0.06);
 
     /* Sidebar shadcn tokens */
     --sidebar-background: 222 75% 18%;
@@ -127,9 +127,8 @@
 
   /* Card with corporate shadow */
   .corp-card {
-    @apply bg-card rounded-xl border border-border;
-    box-shadow: var(--shadow-card);
-  }
+  @apply rounded-[var(--radius)] border border-border/70 bg-card shadow-[var(--shadow-card)];
+}
 
   .corp-card-elevated {
     @apply bg-card rounded-xl border border-border;
@@ -155,8 +154,8 @@
 
   /* KPI Card */
   .kpi-card {
-    @apply corp-card p-5 flex flex-col gap-2;
-  }
+  @apply flex items-center gap-3 rounded-[var(--radius)] border border-border/70 bg-card px-4 py-3 shadow-[var(--shadow-card)];
+}
 
   /* Table row hover */
   .table-row-hover:hover {

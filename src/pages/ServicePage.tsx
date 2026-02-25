@@ -608,7 +608,12 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               <div className="flex items-center justify-between gap-3 mb-3">
                 <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
 
-                <Button variant="outline" size="sm" onClick={() => setShowChart((v) => !v)} className="h-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowChart(v => !v)}
+                  className="h-8"
+                >
                   {showChart ? (
                     <>
                       <EyeOff className="w-4 h-4 mr-2" />
@@ -630,15 +635,15 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                 onDragEnd={onDragEnd}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                  {visibleKanbanCols.map((col) => {
-                    const colRecords = records.filter((r) => r.status === col.status);
+                  {visibleKanbanCols.map(col => {
+                    const colRecords = records.filter(r => r.status === col.status);
                     const cfg = STATUS_CONFIG[col.status];
 
                     return (
                       <div key={col.status} className="min-w-0">
                         <DroppableColumn id={col.status}>
                           <div className="rounded-xl border bg-background/40 overflow-hidden">
-                            {/* HEADER FIXO DA COLUNA */}
+                            {/* Header fixo da coluna */}
                             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
                               <div className="flex items-center gap-2">
                                 <span className={cfg.className}>{cfg.label}</span>
@@ -646,18 +651,16 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
                               </div>
                             </div>
 
-                            {/* LISTA COM SCROLL */}
+                            {/* Lista com scroll interno */}
                             <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
-                              {colRecords.map((r) => (
+                              {colRecords.map(r => (
                                 <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
                                   <div
                                     className={cn(
-                                      'corp-card p-3 hover:shadow-md transition-shadow',
-                                      isAdmin ? 'cursor-pointer' : 'cursor-default'
+                                      "corp-card p-3 hover:shadow-md transition-shadow",
+                                      isAdmin ? "cursor-pointer" : "cursor-default"
                                     )}
-                                    onClick={() => {
-                                      if (isAdmin) openEdit(r);
-                                    }}
+                                    onClick={() => { if (isAdmin) openEdit(r); }}
                                   >
                                     <div className="text-xs font-semibold text-foreground leading-tight mb-1">
                                       {r.client_name}
@@ -699,7 +702,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               </DndContext>
             </div>
 
-            {/* Chart (abaixo e opcional) */}
+{/* Chart (abaixo e opcional) */}
             {showChart && (
               <div className="corp-card p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Quantidade por status</h3>
