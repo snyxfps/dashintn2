@@ -109,7 +109,11 @@ export default function DashboardGeral() {
     (servicesData || []).forEach((s: any) => serviceMap.set(String(s.id), String(s.name)));
 
     // 2) records (todos)
-    const { data: recs, error: recErr } = await supabase.from("records").select("*").order("created_at", { ascending: false });
+    const { data: recs, error: recErr } = await supabase
+      .from("records")
+      .select("*")
+      .order("created_at", { ascending: false });
+
     if (recErr) {
       console.error(recErr);
       setLoading(false);
@@ -134,6 +138,7 @@ export default function DashboardGeral() {
     return unique.sort((a, b) => a.localeCompare(b));
   }, [records]);
 
+  // ✅ garante que o filtro por owner funcione com os mesmos valores do select
   const owners = useMemo(() => {
     const unique = [...new Set(records.map((r) => (r.owner || "").trim()).filter(Boolean))];
     return unique.sort((a, b) => a.localeCompare(b));
@@ -143,7 +148,11 @@ export default function DashboardGeral() {
     return records.filter((r) => {
       const okService = filterService === "ALL" || (r.service_name || "—") === filterService;
       const okStatus = filterStatus === "ALL" || r.status === filterStatus;
-      const okOwner = filterOwner === "ALL" || (r.owner || "—") === filterOwner;
+
+      // ⚠️ correção: comparar com owner "trimado", igual ao select
+      const ownerTrim = (r.owner || "").trim();
+      const okOwner = filterOwner === "ALL" || ownerTrim === filterOwner;
+
       return okService && okStatus && okOwner;
     });
   }, [records, filterService, filterStatus, filterOwner]);
@@ -235,8 +244,12 @@ export default function DashboardGeral() {
       }
     }
 
+    // pequena otimização: conta por status em 1 passe (evita N filters)
+    const totalByStatus: Record<string, number> = {};
+    for (const r of filtered) totalByStatus[r.status] = (totalByStatus[r.status] || 0) + 1;
+
     return STATUS_OPTIONS.map((s) => {
-      const count = filtered.filter((r) => r.status === s).length;
+      const count = totalByStatus[s] || 0;
       const pct = (count / total) * 100;
       const last14 = last14By[s] || 0;
       const prev14 = prev14By[s] || 0;
@@ -370,8 +383,10 @@ export default function DashboardGeral() {
     const last30Start = new Date(today);
     last30Start.setDate(last30Start.getDate() - 30);
 
-    const by: Record<string, { owner: string; in_progress: number; finalized_week: number; lead_sum: number; lead_n: number }> =
-      {};
+    const by: Record<
+      string,
+      { owner: string; in_progress: number; finalized_week: number; lead_sum: number; lead_n: number }
+    > = {};
 
     const ensure = (owner: string) => {
       const key = owner?.trim() ? owner.trim() : "—";
@@ -613,8 +628,8 @@ export default function DashboardGeral() {
                   <div className="text-xs font-semibold text-foreground mb-2">1) Estoque de trabalho (abertos)</div>
                   <div className="text-sm text-foreground leading-relaxed">
                     Atualmente temos <span className="font-semibold">{kpiTop.total}</span> integrações no recorte selecionado.
-                    Destas, <span className="font-semibold">{kpiTop.open}</span> estão abertas (NOVO/REUNIÃO/ANDAMENTO) —
-                    isso é o <span className="font-semibold">estoque</span> de trabalho pendente.
+                    Destas, <span className="font-semibold">{kpiTop.open}</span> estão abertas (NOVO/REUNIÃO/ANDAMENTO) — isso
+                    é o <span className="font-semibold">estoque</span> de trabalho pendente.
                   </div>
                   <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
                     Impacto: quanto maior o estoque aberto, maior risco de fila, atraso e pressão em SLA.
@@ -624,14 +639,13 @@ export default function DashboardGeral() {
                 <div className="rounded-xl border bg-background/40 p-4">
                   <div className="text-xs font-semibold text-foreground mb-2">2) Produção e perda (últimos 14 dias)</div>
                   <div className="text-sm text-foreground leading-relaxed">
-                    Nos últimos 14 dias, foram <span className="font-semibold">{kpiTop.fin14}</span> finalizadas
-                    ({kpiTop.finDelta14 >= 0 ? "↑" : "↓"}{" "}
+                    Nos últimos 14 dias, foram <span className="font-semibold">{kpiTop.fin14}</span> finalizadas (
+                    {kpiTop.finDelta14 >= 0 ? "↑" : "↓"}{" "}
                     <span className={cn("font-semibold", kpiTop.finDelta14 >= 0 ? "text-emerald-600" : "text-rose-600")}>
                       {kpiTop.finDelta14 >= 0 ? `+${kpiTop.finDelta14}` : kpiTop.finDelta14}
                     </span>{" "}
-                    vs 14 dias anteriores).
-                    No mesmo período, <span className="font-semibold">{kpiTop.can14}</span> foram canceladas
-                    ({kpiTop.canDelta14 >= 0 ? "↑" : "↓"}{" "}
+                    vs 14 dias anteriores). No mesmo período, <span className="font-semibold">{kpiTop.can14}</span> foram
+                    canceladas ({kpiTop.canDelta14 >= 0 ? "↑" : "↓"}{" "}
                     <span className={cn("font-semibold", kpiTop.canDelta14 >= 0 ? "text-rose-600" : "text-emerald-600")}>
                       {kpiTop.canDelta14 >= 0 ? `+${kpiTop.canDelta14}` : kpiTop.canDelta14}
                     </span>{" "}
@@ -639,7 +653,8 @@ export default function DashboardGeral() {
                   </div>
 
                   <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                    Impacto: finalizações mostram entrega. Cancelamentos indicam perda. Se cancelamentos sobem, vale revisar triagem e critérios de aceite.
+                    Impacto: finalizações mostram entrega. Cancelamentos indicam perda. Se cancelamentos sobem, vale revisar
+                    triagem e critérios de aceite.
                   </div>
 
                   <div className="mt-2 text-xs">
@@ -678,7 +693,8 @@ export default function DashboardGeral() {
                   </div>
 
                   <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                    Impacto: itens 45+ aumentam chance de escalonamento e SLA estourado. Ação típica: priorizar 45+ e destravar dependências.
+                    Impacto: itens 45+ aumentam chance de escalonamento e SLA estourado. Ação típica: priorizar 45+ e destravar
+                    dependências.
                   </div>
                 </div>
 
@@ -687,16 +703,18 @@ export default function DashboardGeral() {
                   <div className="text-sm text-foreground leading-relaxed">
                     Na semana atual ({meetingsSummary.weekLabel}), tivemos{" "}
                     <span className="font-semibold">{meetingsSummary.reunioes}</span> reuniões e{" "}
-                    <span className="font-semibold">{meetingsSummary.convertidas}</span> viraram andamento/finalização em até 7 dias
-                    (conversão de <span className="font-semibold">{meetingsSummary.conversao}%</span>).
+                    <span className="font-semibold">{meetingsSummary.convertidas}</span> viraram andamento/finalização em até 7
+                    dias (conversão de <span className="font-semibold">{meetingsSummary.conversao}%</span>).
                   </div>
 
                   <div className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                    Impacto: conversão baixa sugere reunião sem ação clara. Ação: padronizar “decisão + próximo passo + owner + data”.
+                    Impacto: conversão baixa sugere reunião sem ação clara. Ação: padronizar “decisão + próximo passo + owner +
+                    data”.
                   </div>
 
                   <div className="mt-2 text-[11px] text-muted-foreground">
-                    Obs.: conversão usa <span className="font-medium">updated_at</span> como proxy (não há histórico de transição).
+                    Obs.: conversão usa <span className="font-medium">updated_at</span> como proxy (não há histórico de
+                    transição).
                   </div>
                 </div>
               </div>
@@ -712,8 +730,12 @@ export default function DashboardGeral() {
                       <div className="text-xs text-muted-foreground">% do total + tendência 14d vs 14d anteriores + alertas</div>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="px-2 py-1 rounded-md border">Finalizados &lt; {threshold.finalizadosMin14d}/14d = ruim</span>
-                      <span className="px-2 py-1 rounded-md border">Cancelados &gt; {threshold.canceladosMax14d}/14d = alerta</span>
+                      <span className="px-2 py-1 rounded-md border">
+                        Finalizados &lt; {threshold.finalizadosMin14d}/14d = ruim
+                      </span>
+                      <span className="px-2 py-1 rounded-md border">
+                        Cancelados &gt; {threshold.canceladosMax14d}/14d = alerta
+                      </span>
                     </div>
                   </div>
 
@@ -752,7 +774,12 @@ export default function DashboardGeral() {
                               <td className="px-3 py-2 text-right text-xs text-foreground font-medium">{s.count}</td>
                               <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.pct.toFixed(0)}%</td>
                               <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.last14}</td>
-                              <td className={cn("px-3 py-2 text-right text-xs", s.delta14 >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                              <td
+                                className={cn(
+                                  "px-3 py-2 text-right text-xs",
+                                  s.delta14 >= 0 ? "text-emerald-600" : "text-rose-600"
+                                )}
+                              >
                                 {s.delta14 >= 0 ? `+${s.delta14}` : s.delta14}
                               </td>
                             </tr>
@@ -766,7 +793,12 @@ export default function DashboardGeral() {
                         <BarChart data={statusContextData} layout="vertical" barSize={14}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
                           <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
-                          <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} width={140} />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }}
+                            width={140}
+                          />
                           <RechartsTooltip
                             contentStyle={{ borderRadius: 8, fontSize: 11 }}
                             formatter={(value: any, _name: any, props: any) => {
@@ -789,7 +821,9 @@ export default function DashboardGeral() {
                 <div className="corp-card p-5">
                   <div className="mb-4">
                     <h3 className="text-sm font-semibold text-foreground">Throughput (por semana)</h3>
-                    <div className="text-xs text-muted-foreground">Finalizado x Cancelado x Devolvido (últimas 12 semanas)</div>
+                    <div className="text-xs text-muted-foreground">
+                      Finalizado x Cancelado x Devolvido (últimas 12 semanas)
+                    </div>
                   </div>
 
                   <ResponsiveContainer width="100%" height={280}>
@@ -885,10 +919,24 @@ export default function DashboardGeral() {
                       <ResponsiveContainer width="100%" height={260}>
                         <BarChart data={ownerRankingChart} layout="vertical" barSize={14}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
-                          <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
-                          <YAxis type="category" dataKey="owner" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} width={140} />
+                          <XAxis
+                            type="number"
+                            tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }}
+                            allowDecimals={false}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="owner"
+                            tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }}
+                            width={140}
+                          />
                           <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                          <Bar dataKey="in_progress" name="Em andamento" fill={STATUS_COLORS.ANDAMENTO} radius={[0, 4, 4, 0]} />
+                          <Bar
+                            dataKey="in_progress"
+                            name="Em andamento"
+                            fill={STATUS_COLORS.ANDAMENTO}
+                            radius={[0, 4, 4, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                       <div className="text-xs text-muted-foreground mt-2">Top 10 por carga atual.</div>
@@ -900,8 +948,12 @@ export default function DashboardGeral() {
                           <tr className="border-b border-border bg-muted/30">
                             <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Owner</th>
                             <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Em andamento</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Finalizados (semana)</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Lead time médio (30d)</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">
+                              Finalizados (semana)
+                            </th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">
+                              Lead time médio (30d)
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -931,12 +983,29 @@ export default function DashboardGeral() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
                       <XAxis dataKey="week" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
                       <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} domain={[0, 100]} />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }}
+                        domain={[0, 100]}
+                      />
                       <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                       <Bar yAxisId="left" dataKey="reunioes" name="Reuniões" fill={STATUS_COLORS.REUNIAO} radius={[4, 4, 0, 0]} />
-                      <Bar yAxisId="left" dataKey="convertidas" name="Convertidas (≤7d)" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
-                      <Bar yAxisId="right" dataKey="conversao" name="Conversão %" fill={STATUS_COLORS.ANDAMENTO} radius={[4, 4, 0, 0]} />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="convertidas"
+                        name="Convertidas (≤7d)"
+                        fill={STATUS_COLORS.FINALIZADO}
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        yAxisId="right"
+                        dataKey="conversao"
+                        name="Conversão %"
+                        fill={STATUS_COLORS.ANDAMENTO}
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
 
@@ -961,8 +1030,12 @@ export default function DashboardGeral() {
                       <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Serviço</th>
                       <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Cliente</th>
                       <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Owner</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Início</th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">
+                        Owner
+                      </th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">
+                        Início
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -973,7 +1046,7 @@ export default function DashboardGeral() {
                         <td className="px-3 py-3">
                           <StatusBadge status={r.status} />
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || "-"}</td>
+                        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{(r.owner || "").trim() || "-"}</td>
                         <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
                           <div className="flex items-center gap-1.5">
                             <CalendarDays className="w-3 h-3" />
