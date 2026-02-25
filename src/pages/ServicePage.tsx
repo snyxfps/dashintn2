@@ -607,25 +607,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             <div className="corp-card p-5">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowChart(v => !v)}
-                  className="h-8"
-                >
-                  {showChart ? (
-                    <>
-                      <EyeOff className="w-4 h-4 mr-2" />
-                      Ocultar gráfico
-                    </>
-                  ) : (
-                    <>
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Mostrar gráfico
-                    </>
-                  )}
-                </Button>
               </div>
 
               <DndContext
