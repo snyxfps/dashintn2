@@ -70,7 +70,7 @@ const fmtWeek = (d: Date) => {
   return `${dd}/${mm}`;
 };
 
-// data "relevante" por status (mesma lógica que você já usa nos cálculos)
+// data "relevante" por status
 const getEventDateForStatus = (r: ServiceRecord): Date | null => {
   if (r.status === "FINALIZADO" || r.status === "CANCELADO") return toDateOnly(r.end_date);
   if (r.status === "DEVOLVIDO") return toDateOnly(r.devolucao_date);
@@ -90,7 +90,7 @@ export default function DashboardGeral() {
   const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
   const [filterOwner, setFilterOwner] = useState<string>("ALL");
 
-  // ✅ filtro de data (date input trabalha com YYYY-MM-DD)
+  // filtro de data (date input trabalha com YYYY-MM-DD)
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
 
@@ -107,10 +107,7 @@ export default function DashboardGeral() {
     const serviceMap = new Map<string, string>();
     (servicesData || []).forEach((s: any) => serviceMap.set(String(s.id), String(s.name)));
 
-    const { data: recs, error: recErr } = await supabase
-      .from("records")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data: recs, error: recErr } = await supabase.from("records").select("*").order("created_at", { ascending: false });
 
     if (recErr) {
       console.error(recErr);
@@ -155,21 +152,22 @@ export default function DashboardGeral() {
       const ownerTrim = (r.owner || "").trim();
       const okOwner = filterOwner === "ALL" || ownerTrim === filterOwner;
 
-      // ✅ filtro por data usando a data "relevante" do registro
+      // filtro por data usando a data "relevante" do registro
       const ev = getEventDateForStatus(r);
       let okDate = true;
 
       if (dateFrom || dateTo) {
-        // se o usuário ativou filtro de data, e o registro não tem data, a gente remove
         if (!ev) okDate = false;
         else {
           const evDay = startOfDay(ev);
+
           if (dateFrom && evDay.getTime() < dateFrom.getTime()) okDate = false;
+
           if (dateTo) {
-            // inclusive: <= dateTo
-            const endInclusive = new Date(dateTo);
-            endInclusive.setDate(endInclusive.getDate() + 1); // soma 1 dia e usa < (exclusive)
-            if (evDay.getTime() >= endInclusive.getTime()) okDate = false;
+            // inclusive: <= dateTo (fazendo intervalo [from, to+1d) )
+            const endExclusive = new Date(dateTo);
+            endExclusive.setDate(endExclusive.getDate() + 1);
+            if (evDay.getTime() >= endExclusive.getTime()) okDate = false;
           }
         }
       }
@@ -295,7 +293,7 @@ export default function DashboardGeral() {
                   </SelectContent>
                 </Select>
 
-                {/* ✅ filtro de data */}
+                {/* filtro de data */}
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 rounded-md border px-2 h-8">
                     <CalendarDays className="w-4 h-4 text-muted-foreground" />
@@ -341,7 +339,12 @@ export default function DashboardGeral() {
                     <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} width={140} />
                     <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    <Bar
+                      dataKey="count"
+                      radius={[0, 4, 4, 0]}
+                      animationDuration={500}
+                      animationEasing="ease-out"
+                    >
                       {statusDist.map((entry, i) => (
                         <Cell key={i} fill={entry.color} />
                       ))}
@@ -364,9 +367,28 @@ export default function DashboardGeral() {
                     <YAxis tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
                     <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="FINALIZADO" stackId="a" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="CANCELADO" stackId="a" fill={STATUS_COLORS.CANCELADO} />
-                    <Bar dataKey="DEVOLVIDO" stackId="a" fill={STATUS_COLORS.DEVOLVIDO} />
+                    <Bar
+                      dataKey="FINALIZADO"
+                      stackId="a"
+                      fill={STATUS_COLORS.FINALIZADO}
+                      radius={[4, 4, 0, 0]}
+                      animationDuration={500}
+                      animationEasing="ease-out"
+                    />
+                    <Bar
+                      dataKey="CANCELADO"
+                      stackId="a"
+                      fill={STATUS_COLORS.CANCELADO}
+                      animationDuration={500}
+                      animationEasing="ease-out"
+                    />
+                    <Bar
+                      dataKey="DEVOLVIDO"
+                      stackId="a"
+                      fill={STATUS_COLORS.DEVOLVIDO}
+                      animationDuration={500}
+                      animationEasing="ease-out"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -384,7 +406,14 @@ export default function DashboardGeral() {
                     <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
                     <YAxis tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
                     <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                    <Bar dataKey="count" name="Cards" fill={STATUS_COLORS.ANDAMENTO} radius={[6, 6, 0, 0]} />
+                    <Bar
+                      dataKey="count"
+                      name="Cards"
+                      fill={STATUS_COLORS.ANDAMENTO}
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={500}
+                      animationEasing="ease-out"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -416,7 +445,9 @@ export default function DashboardGeral() {
                         <td className="px-3 py-3">
                           <StatusBadge status={r.status} />
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{(r.owner || "").trim() || "-"}</td>
+                        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">
+                          {(r.owner || "").trim() || "-"}
+                        </td>
                         <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
                           <div className="flex items-center gap-1.5">
                             <CalendarDays className="w-3 h-3" />
@@ -425,10 +456,16 @@ export default function DashboardGeral() {
                         </td>
                       </tr>
                     ))}
+
                     {filtered.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                          Nenhum registro encontrado com os filtros atuais.
+                        <td colSpan={5} className="px-5 py-14 text-center">
+                          <div className="text-sm font-medium text-foreground">
+                            Nenhum registro corresponde aos filtros selecionados
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Tente ampliar o período, remover filtros ou selecionar outro serviço.
+                          </div>
                         </td>
                       </tr>
                     )}
