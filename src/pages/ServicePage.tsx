@@ -33,6 +33,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Cell,
+  Legend,
 } from 'recharts';
 import {
   Plus,
@@ -268,16 +269,309 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     { label: 'Cancelados', value: records.filter((r) => r.status === 'CANCELADO').length, icon: XCircle, colorVar: 'var(--status-cancelado)', bgVar: 'var(--status-cancelado-bg)' },
   ];
 
-  // Status chart
-  const statusChartData = useMemo(
-    () =>
-      allowedStatusOptions.map((s) => ({
+  // =====================
+  // Analytics helpers
+  // =====================
+  const toDateOnly = (v: string | null | undefined): Date | null => {
+    const s = String(v || '').trim();
+    if (!s) return null;
+    // YYYY-MM-DD (ou ISO com hora -> corta)
+    const base = s.includes('T') ? s.split('T')[0] : s;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(base);
+    if (!m) return null;
+    const [, yyyy, mm, dd] = m;
+    return new Date(Number(yyyy), Number(mm) - 1, Number(dd), 0, 0, 0, 0);
+  };
+
+  const toDateTime = (v: string | null | undefined): Date | null => {
+    const s = String(v || '').trim();
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const diffDays = (a: Date, b: Date) => (startOfDay(a).getTime() - startOfDay(b).getTime()) / 86400000;
+
+  const weekStart = (d: Date) => {
+    const x = startOfDay(d);
+    // Monday as start of week
+    const day = x.getDay(); // 0..6 (Sun..Sat)
+    const delta = (day + 6) % 7; // 0 when Monday
+    x.setDate(x.getDate() - delta);
+    return x;
+  };
+
+  const fmtWeek = (d: Date) => {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}`;
+  };
+
+  const getEventDateForStatus = (r: ServiceRecord): Date | null => {
+    if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') return toDateOnly(r.end_date);
+    if (r.status === 'DEVOLVIDO') return toDateOnly(r.devolucao_date);
+    if (r.status === 'REUNIAO') return toDateTime(r.meeting_datetime);
+    if (r.status === 'NOVO') return toDateOnly(r.cadastro_date) || toDateOnly(r.start_date);
+    if (r.status === 'ANDAMENTO') return toDateOnly(r.start_date);
+    return toDateOnly(r.start_date);
+  };
+
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const last7Start = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 7);
+    return d;
+  }, [today]);
+  const prev7Start = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 14);
+    return d;
+  }, [today]);
+
+  const thisWeekStart = useMemo(() => weekStart(today), [today]);
+
+  const threshold = {
+    finalizadosMinWeek: 10,
+    canceladosMaxWeek: 5,
+  };
+
+  // Distribuição por status (com contexto)
+  const statusContextData = useMemo(() => {
+    const total = records.length || 1;
+
+    const last7ByStatus: Record<string, number> = {};
+    const prev7ByStatus: Record<string, number> = {};
+
+    for (const r of records) {
+      const d = getEventDateForStatus(r);
+      if (!d) continue;
+      const ts = d.getTime();
+
+      if (ts >= last7Start.getTime() && ts < today.getTime()) {
+        last7ByStatus[r.status] = (last7ByStatus[r.status] || 0) + 1;
+      }
+      if (ts >= prev7Start.getTime() && ts < last7Start.getTime()) {
+        prev7ByStatus[r.status] = (prev7ByStatus[r.status] || 0) + 1;
+      }
+    }
+
+    return allowedStatusOptions.map((s) => {
+      const count = records.filter((r) => r.status === s).length;
+      const pct = (count / total) * 100;
+      const last7 = last7ByStatus[s] || 0;
+      const prev7 = prev7ByStatus[s] || 0;
+      const delta = last7 - prev7;
+
+      const alert =
+        s === 'FINALIZADO'
+          ? last7 < threshold.finalizadosMinWeek
+            ? 'ruim'
+            : 'ok'
+          : s === 'CANCELADO'
+            ? last7 > threshold.canceladosMaxWeek
+              ? 'alerta'
+              : 'ok'
+            : 'ok';
+
+      return {
+        status: s,
         name: STATUS_CONFIG[s].label,
-        count: records.filter((r) => r.status === s).length,
+        count,
+        pct,
+        last7,
+        delta,
+        alert,
         color: STATUS_COLORS[s],
-      })),
-    [records, allowedStatusOptions]
+      };
+    });
+  }, [records, allowedStatusOptions, last7Start, prev7Start, today]);
+
+  // Throughput semanal (produção x perda)
+  const throughputWeekly = useMemo(() => {
+    const rows: Record<string, any> = {};
+
+    for (const r of records) {
+      if (!['FINALIZADO', 'CANCELADO', 'DEVOLVIDO'].includes(r.status)) continue;
+      const d = getEventDateForStatus(r);
+      if (!d) continue;
+      const ws = weekStart(d);
+      const key = ws.toISOString().slice(0, 10);
+      if (!rows[key]) {
+        rows[key] = {
+          key,
+          week: fmtWeek(ws),
+          FINALIZADO: 0,
+          CANCELADO: 0,
+          DEVOLVIDO: 0,
+        };
+      }
+      rows[key][r.status] += 1;
+    }
+
+    const sorted = Object.values(rows).sort((a: any, b: any) => (a.key > b.key ? 1 : -1));
+    return sorted.slice(-12);
+  }, [records]);
+
+  // Lead time (dias)
+  const leadTimeStats = useMemo(() => {
+    const buckets: Record<string, number[]> = { FINALIZADO: [], CANCELADO: [], DEVOLVIDO: [] };
+
+    for (const r of records) {
+      if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') {
+        const end = toDateOnly(r.end_date);
+        const start = toDateOnly(r.start_date);
+        if (end && start) buckets[r.status].push(Math.max(0, diffDays(end, start)));
+      }
+      if (r.status === 'DEVOLVIDO') {
+        const end = toDateOnly(r.devolucao_date);
+        const start = toDateOnly(r.start_date);
+        if (end && start) buckets.DEVOLVIDO.push(Math.max(0, diffDays(end, start)));
+      }
+    }
+
+    const median = (arr: number[]) => {
+      if (!arr.length) return 0;
+      const a = [...arr].sort((x, y) => x - y);
+      const mid = Math.floor(a.length / 2);
+      return a.length % 2 === 0 ? (a[mid - 1] + a[mid]) / 2 : a[mid];
+    };
+
+    const mean = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+    const p75 = (arr: number[]) => {
+      if (!arr.length) return 0;
+      const a = [...arr].sort((x, y) => x - y);
+      const idx = Math.floor(0.75 * (a.length - 1));
+      return a[idx];
+    };
+
+    return (['FINALIZADO', 'CANCELADO', 'DEVOLVIDO'] as RecordStatus[]).map((s) => ({
+      status: s,
+      name: STATUS_CONFIG[s].label,
+      count: buckets[s].length,
+      median: Number(median(buckets[s]).toFixed(1)),
+      mean: Number(mean(buckets[s]).toFixed(1)),
+      p75: Number(p75(buckets[s]).toFixed(1)),
+      color: STATUS_COLORS[s],
+    }));
+  }, [records]);
+
+  // Aging (idade dos cards em andamento)
+  const agingBuckets = useMemo(() => {
+    const open = records.filter((r) => ['NOVO', 'REUNIAO', 'ANDAMENTO'].includes(r.status));
+    const buckets = [
+      { bucket: '0–15', from: 0, to: 15, count: 0 },
+      { bucket: '15–25', from: 15, to: 25, count: 0 },
+      { bucket: '25–45', from: 25, to: 45, count: 0 },
+      { bucket: '45+', from: 45, to: 10_000, count: 0 },
+    ];
+
+    for (const r of open) {
+      const start = toDateOnly(r.start_date);
+      if (!start) continue;
+      const age = Math.max(0, diffDays(today, start));
+      const b = buckets.find((x) => age >= x.from && age < x.to);
+      if (b) b.count += 1;
+    }
+
+    return buckets;
+  }, [records, today]);
+
+  // Ranking por responsável
+  const ownerRanking = useMemo(() => {
+    const open = records.filter((r) => ['NOVO', 'REUNIAO', 'ANDAMENTO'].includes(r.status));
+
+    const last30Start = new Date(today);
+    last30Start.setDate(last30Start.getDate() - 30);
+
+    const byOwner: Record<string, { owner: string; in_progress: number; finalized_week: number; lead_time_sum: number; lead_time_n: number }> = {};
+
+    const ensure = (owner: string) => {
+      const key = owner || '—';
+      if (!byOwner[key]) byOwner[key] = { owner: key, in_progress: 0, finalized_week: 0, lead_time_sum: 0, lead_time_n: 0 };
+      return byOwner[key];
+    };
+
+    for (const r of open) {
+      ensure(r.owner).in_progress += 1;
+    }
+
+    for (const r of records) {
+      const o = ensure(r.owner);
+      if (r.status === 'FINALIZADO') {
+        const end = toDateOnly(r.end_date);
+        if (end && end.getTime() >= thisWeekStart.getTime() && end.getTime() < today.getTime()) o.finalized_week += 1;
+      }
+
+      // lead time médio (últimos 30 dias, terminal)
+      if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') {
+        const end = toDateOnly(r.end_date);
+        const start = toDateOnly(r.start_date);
+        if (end && start && end.getTime() >= last30Start.getTime()) {
+          o.lead_time_sum += Math.max(0, diffDays(end, start));
+          o.lead_time_n += 1;
+        }
+      }
+      if (r.status === 'DEVOLVIDO') {
+        const end = toDateOnly(r.devolucao_date);
+        const start = toDateOnly(r.start_date);
+        if (end && start && end.getTime() >= last30Start.getTime()) {
+          o.lead_time_sum += Math.max(0, diffDays(end, start));
+          o.lead_time_n += 1;
+        }
+      }
+    }
+
+    return Object.values(byOwner)
+      .map((x) => ({
+        ...x,
+        lead_time_avg: x.lead_time_n ? Number((x.lead_time_sum / x.lead_time_n).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.in_progress - a.in_progress);
+  }, [records, today, thisWeekStart]);
+
+  const ownerRankingChart = useMemo(
+    () => ownerRanking.slice(0, 10).map((o) => ({ owner: o.owner, in_progress: o.in_progress })),
+    [ownerRanking]
   );
+
+  // Reuniões: volume + conversão
+  const meetingsWeekly = useMemo(() => {
+    const rows: Record<string, any> = {};
+    const X = 7; // dias para considerar “virou resultado”
+
+    for (const r of records) {
+      const mdt = toDateTime(r.meeting_datetime);
+      if (!mdt) continue;
+      const ws = weekStart(mdt);
+      const key = ws.toISOString().slice(0, 10);
+      if (!rows[key]) {
+        rows[key] = { key, week: fmtWeek(ws), reunioes: 0, convertidas: 0, conversao: 0 };
+      }
+      rows[key].reunioes += 1;
+
+      const isConverted = r.status !== 'REUNIAO';
+      if (!isConverted) continue;
+
+      // proxy de quando “virou”: terminal -> data do terminal; senão -> updated_at
+      const moveDate =
+        r.status === 'FINALIZADO' || r.status === 'CANCELADO'
+          ? toDateOnly(r.end_date)
+          : r.status === 'DEVOLVIDO'
+            ? toDateOnly(r.devolucao_date)
+            : toDateTime(r.updated_at);
+
+      if (!moveDate) continue;
+      const days = diffDays(moveDate, mdt);
+      if (days <= X) rows[key].convertidas += 1;
+    }
+
+    const sorted = Object.values(rows)
+      .map((r: any) => ({ ...r, conversao: r.reunioes ? Number(((r.convertidas / r.reunioes) * 100).toFixed(0)) : 0 }))
+      .sort((a: any, b: any) => (a.key > b.key ? 1 : -1));
+
+    return sorted.slice(-12);
+  }, [records]);
 
   const openAdd = () => {
     setEditRecord(null);
@@ -723,28 +1017,253 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               </DndContext>
             </div>
 
-            {/* Chart (abaixo e opcional) */}
+            {/* Analytics (abaixo e opcional) */}
             {showChart && (
-              <div className="corp-card p-5">
-                <h3 className="text-sm font-semibold text-foreground mb-4">Quantidade por status</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={statusChartData} layout="vertical" barSize={14}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }}
-                      width={120}
-                    />
-                    <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                      {statusChartData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="space-y-4">
+                {/* 1) Distribuição por status (com contexto) */}
+                <div className="corp-card p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Distribuição por status</h3>
+                      <div className="text-xs text-muted-foreground">
+                        % do total + tendência (últimos 7 dias vs 7 dias anteriores) + alertas de meta
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="px-2 py-1 rounded-md border">Finalizados &lt; {threshold.finalizadosMinWeek}/7d = ruim</span>
+                      <span className="px-2 py-1 rounded-md border">Cancelados &gt; {threshold.canceladosMaxWeek}/7d = alerta</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/30">
+                            <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Status</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Qtd</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">%</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">7d</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Δ 7d</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {statusContextData.map((s) => (
+                            <tr key={s.status}>
+                              <td className="px-3 py-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('w-2 h-2 rounded-full', STATUS_CONFIG[s.status].dot)} />
+                                  <span className="text-foreground">{s.name}</span>
+                                  {s.alert !== 'ok' && (
+                                    <span
+                                      className={cn(
+                                        'text-[10px] px-2 py-0.5 rounded-full border',
+                                        s.alert === 'ruim' && 'border-red-500/30 text-red-500',
+                                        s.alert === 'alerta' && 'border-amber-500/30 text-amber-600'
+                                      )}
+                                    >
+                                      {s.alert}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-right text-xs text-foreground font-medium">{s.count}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.pct.toFixed(0)}%</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.last7}</td>
+                              <td className={cn('px-3 py-2 text-right text-xs', s.delta >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                                {s.delta >= 0 ? `+${s.delta}` : s.delta}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={statusContextData} layout="vertical" barSize={14}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={140} />
+                          <RechartsTooltip
+                            contentStyle={{ borderRadius: 8, fontSize: 11 }}
+                            formatter={(value: any, _name: any, props: any) => {
+                              const pct = props?.payload?.pct;
+                              return [`${value} (${pct?.toFixed?.(0)}%)`, 'Qtd'];
+                            }}
+                          />
+                          <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                            {statusContextData.map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2) Throughput (por semana) */}
+                <div className="corp-card p-5">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Throughput (por semana)</h3>
+                    <div className="text-xs text-muted-foreground">Finalizado x Cancelado x Devolvido (últimas 12 semanas)</div>
+                  </div>
+
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={throughputWeekly} barSize={18}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
+                      <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
+                      <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="FINALIZADO" stackId="a" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="CANCELADO" stackId="a" fill={STATUS_COLORS.CANCELADO} />
+                      <Bar dataKey="DEVOLVIDO" stackId="a" fill={STATUS_COLORS.DEVOLVIDO} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 3) Lead time */}
+                <div className="corp-card p-5">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Lead time (dias)</h3>
+                    <div className="text-xs text-muted-foreground">Tempo até concluir/cancelar/devolver (média, mediana e P75)</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={leadTimeStats} barSize={18}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
+                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                          <YAxis tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                          <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="median" name="Mediana" fill="hsl(220 15% 45%)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="mean" name="Média" fill="hsl(220 15% 65%)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/30">
+                            <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Status</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">N</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Mediana</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Média</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">P75</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {leadTimeStats.map((s) => (
+                            <tr key={s.status}>
+                              <td className="px-3 py-2 text-xs text-foreground">{s.name}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.count}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.median}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.mean}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.p75}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Dica: se a mediana subir semana a semana, é sinal de gargalo.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4) Aging */}
+                <div className="corp-card p-5">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Aging (cards em andamento)</h3>
+                    <div className="text-xs text-muted-foreground">Quanto tempo os cards abertos estão “envelhecendo”</div>
+                  </div>
+
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={agingBuckets} barSize={22}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
+                      <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
+                      <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                      <Bar dataKey="count" name="Cards" fill={STATUS_COLORS.ANDAMENTO} radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 5) Ranking por responsável */}
+                <div className="corp-card p-5">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Ranking por responsável</h3>
+                    <div className="text-xs text-muted-foreground">Carga (em andamento), produção (finalizados na semana) e lead time médio (30d)</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={ownerRankingChart} layout="vertical" barSize={14}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
+                          <YAxis type="category" dataKey="owner" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={140} />
+                          <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                          <Bar dataKey="in_progress" name="Em andamento" fill={STATUS_COLORS.ANDAMENTO} radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                      <div className="text-xs text-muted-foreground mt-2">Top 10 por carga atual.</div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/30">
+                            <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Owner</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Em andamento</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Finalizados (semana)</th>
+                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Lead time médio (30d)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {ownerRanking.map((o) => (
+                            <tr key={o.owner}>
+                              <td className="px-3 py-2 text-xs text-foreground">{o.owner}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{o.in_progress}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{o.finalized_week}</td>
+                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{o.lead_time_avg}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6) Reuniões operacionais */}
+                <div className="corp-card p-5">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Reuniões operacionais</h3>
+                    <div className="text-xs text-muted-foreground">Volume por semana + conversão em até 7 dias (proxy)</div>
+                  </div>
+
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={meetingsWeekly} barSize={18}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
+                      <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} domain={[0, 100]} />
+                      <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar yAxisId="left" dataKey="reunioes" name="Reuniões" fill={STATUS_COLORS.REUNIAO} radius={[4, 4, 0, 0]} />
+                      <Bar yAxisId="left" dataKey="convertidas" name="Convertidas (≤7d)" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
+                      <Bar yAxisId="right" dataKey="conversao" name="Conversão %" fill={STATUS_COLORS.ANDAMENTO} radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Observação: a conversão usa <span className="font-medium">updated_at</span> como proxy de “virou status”, pois não há histórico de transição.
+                  </div>
+                </div>
               </div>
             )}
 

@@ -6,9 +6,9 @@
 
 @layer base {
   :root {
-    /* Corporate Blue Design System - refinado */
-    --background: 220 22% 96%;
-    --foreground: 222 35% 12%;
+    /* Corporate Blue Design System */
+    --background: 220 20% 97%;
+    --foreground: 220 30% 12%;
 
     --card: 0 0% 100%;
     --card-foreground: 220 30% 12%;
@@ -16,29 +16,28 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 12%;
 
-    /* Primary: azul corporativo principal */
-    --primary: 222 78% 30%;
+    /* Primary: Deep Corporate Blue */
+    --primary: 222 75% 28%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary: azul de apoio, mais suave */
-    --secondary: 213 50% 93%;
+    /* Secondary: Medium Blue */
+    --secondary: 213 60% 92%;
     --secondary-foreground: 222 75% 28%;
 
-    /* Tons neutros para superfícies e texto auxiliar */
-    --muted: 220 18% 94%;
-    --muted-foreground: 220 15% 45%;
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 50%;
 
-    --accent: 213 45% 90%;
+    --accent: 213 55% 88%;
     --accent-foreground: 222 75% 28%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 16% 86%;
-    --input: 220 16% 86%;
-    --ring: 222 80% 35%;
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 222 75% 28%;
 
-    --radius: 0.95rem;
+    --radius: 0.85rem;
 
     /* Status Colors */
     --status-novo: 220 10% 60%;
@@ -61,9 +60,9 @@
     --sidebar-hover: 222 60% 25%;
     --sidebar-border: 222 50% 25%;
 
-    /* Shadows - mais sutis e modernas */
-    --shadow-card: 0 10px 30px hsl(220 30% 12% / 0.06);
-    --shadow-elevated: 0 18px 45px hsl(222 75% 28% / 0.16);
+    /* Shadows */
+    --shadow-card: 0 1px 2px hsl(220 30% 12% / 0.06), 0 8px 24px -16px hsl(220 30% 12% / 0.12);
+    --shadow-elevated: 0 12px 32px -18px hsl(222 75% 28% / 0.18), 0 2px 8px hsl(220 30% 12% / 0.06);
 
     /* Sidebar shadcn tokens */
     --sidebar-background: 222 75% 18%;
@@ -81,7 +80,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
@@ -128,8 +127,8 @@
 
   /* Card with corporate shadow */
   .corp-card {
-    @apply rounded-[var(--radius)] border border-border/70 bg-card shadow-[var(--shadow-card)] backdrop-blur-sm;
-  }
+  @apply rounded-[var(--radius)] border border-border/70 bg-card shadow-[var(--shadow-card)];
+}
 
   .corp-card-elevated {
     @apply bg-card rounded-xl border border-border;
@@ -155,8 +154,8 @@
 
   /* KPI Card */
   .kpi-card {
-    @apply flex items-center justify-between gap-3 rounded-[var(--radius)] border border-border/60 bg-card/95 px-4 py-3 shadow-[var(--shadow-card)];
-  }
+  @apply flex items-center gap-3 rounded-[var(--radius)] border border-border/70 bg-card px-4 py-3 shadow-[var(--shadow-card)];
+}
 
   /* Table row hover */
   .table-row-hover:hover {
@@ -170,11 +169,11 @@
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: hsl(var(--muted));
 }
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
-  border-radius: 999px;
+  border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
