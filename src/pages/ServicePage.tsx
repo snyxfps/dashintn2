@@ -26,6 +26,7 @@ import { ServiceCharts } from "@/pages/service/components/ServiceCharts";
 import { ServiceKanban } from "@/pages/service/components/ServiceKanban";
 import { writeAuditLog } from "@/pages/service/audit/audit";
 import { ServiceAuditModal } from "@/pages/service/components/ServiceAuditModal";
+import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
 import { ServiceFilters } from "@/pages/service/components/ServiceFilters";
 import { ServiceFormModal, type ServiceFormState } from "@/pages/service/components/ServiceFormModal";
 import { ServiceExportButton } from "@/pages/service/components/ServiceExportButton";
@@ -184,6 +185,14 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     } catch (e: unknown) {
       toast.error("Erro ao criar serviço: " + (e instanceof Error ? e.message : "Tente novamente"));
     }
+  };
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsRecord, setDetailsRecord] = useState<ServiceRecord | null>(null);
+
+  const openDetails = (r: ServiceRecord) => {
+    setDetailsRecord(r);
+    setDetailsOpen(true);
   };
 
   const handleSave = async () => {
@@ -361,6 +370,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               onEdit={openEdit}
               onAskDelete={(id) => setDeleteId(id)}
               onMove={handleMove}
+              onOpen={openDetails}
             />
           </>
         )}
@@ -386,6 +396,21 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         onOpenChange={setAuditOpen}
         recordId={auditRecord?.id ?? null}
         title={auditRecord ? `Histórico — ${auditRecord.client_name}` : "Histórico"}
+      />
+
+      <ServiceRecordDetailsSheet
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        record={detailsRecord}
+        isAdmin={isAdmin}
+        onEdit={(r) => {
+          setDetailsOpen(false);
+          openEdit(r);
+      }}
+        onAskDelete={(id) => {
+          setDetailsOpen(false);
+          setDeleteId(id);
+      }}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
