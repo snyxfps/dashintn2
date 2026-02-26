@@ -82,7 +82,7 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <h2 className="text-2xl font-bold mb-1" style={{ color: 'hsl(220 30% 12%)', letterSpacing: '-0.02em' }}>
-              {mode === 'login' ? 'Bem-vindo de volta' : 'Criar conta'}
+              {mode === 'login' ? 'Bem-vindo!' : 'Criar conta'}
             </h2>
             <p className="text-sm mb-6" style={{ color: 'hsl(220 15% 50%)' }}>
               {mode === 'login' ? 'Faça login para acessar o painel' : 'Preencha os dados para criar sua conta'}
