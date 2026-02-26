@@ -53,15 +53,14 @@ export const LoginPage: React.FC = () => {
             <span style={{ color: 'hsl(213 90% 65%)' }}>centralizada e eficiente</span>
           </h1>
           <p className="text-base opacity-70 leading-relaxed max-w-sm">
-            Acompanhe integrações SMP, Multicadastro, RC-V e Tecnologia Logística em tempo real, com visibilidade total dos clientes e status.
+            Acompanhe integrações SMP, Multicadastro, RC-V, Tecnologia Logística e Tecnologia Risco em tempo real, com visibilidade total dos clientes e status.
           </p>
         </div>
 
         <div className="flex gap-8">
           {[
-            { label: 'Serviços', value: '4' },
-            { label: 'Clientes ativos', value: '20+' },
-            { label: 'Status em tempo real', value: '6' },
+            { label: 'Serviços', value: '5' },
+            { label: 'Clientes ativos', value: '25+' },
           ].map(item => (
             <div key={item.label}>
               <div className="text-3xl font-bold" style={{ color: 'hsl(213 90% 65%)' }}>{item.value}</div>
