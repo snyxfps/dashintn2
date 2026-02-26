@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import type { RecordStatus, ServiceRecord } from "@/types";
 import { STATUS_CONFIG } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
-import { StatusSelect } from "@/components/StatusSelect";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -23,11 +22,7 @@ import {
 
 function DroppableColumn({ id, children }: { id: RecordStatus; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div ref={setNodeRef} className={cn("rounded-xl transition", isOver && "ring-2 ring-primary/40")}>
-      {children}
-    </div>
-  );
+  return <div ref={setNodeRef} className={cn("rounded-xl transition", isOver && "ring-2 ring-primary/40")}>{children}</div>;
 }
 
 function DraggableCard({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
@@ -86,7 +81,10 @@ export function ServiceKanban({
     onMove(recordId, newStatus);
   };
 
-  const activeRecord = useMemo(() => (activeDragId ? records.find((r) => r.id === activeDragId) : null), [activeDragId, records]);
+  const activeRecord = useMemo(
+    () => (activeDragId ? records.find((r) => r.id === activeDragId) : null),
+    [activeDragId, records]
+  );
 
   return (
     <TooltipProvider>
@@ -97,9 +95,7 @@ export function ServiceKanban({
               <div className="corp-card p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-semibold text-foreground">{col.label}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {records.filter((r) => r.status === col.status).length}
-                  </div>
+                  <div className="text-xs text-muted-foreground">{records.filter((r) => r.status === col.status).length}</div>
                 </div>
 
                 <div className="space-y-2">
@@ -111,6 +107,7 @@ export function ServiceKanban({
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <div className="text-sm font-semibold truncate">{r.client_name}</div>
+
                               <div className="mt-1 flex flex-wrap items-center gap-2">
                                 <StatusBadge status={r.status} />
                                 {r.owner ? <span className="text-xs text-muted-foreground">{r.owner}</span> : null}
@@ -130,7 +127,12 @@ export function ServiceKanban({
 
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onAskDelete(r.id)}>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={() => onAskDelete(r.id)}
+                                    >
                                       <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                   </TooltipTrigger>
@@ -138,10 +140,6 @@ export function ServiceKanban({
                                 </Tooltip>
                               </div>
                             ) : null}
-                          </div>
-
-                          <div className="mt-3">
-                            <StatusSelect value={r.status} onChange={(s) => onMove(r.id, s)} disabled={!isAdmin} />
                           </div>
                         </div>
                       </DraggableCard>
