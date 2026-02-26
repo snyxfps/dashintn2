@@ -3,6 +3,7 @@ import type { RecordStatus } from "@/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ServiceAuditLog } from "./ServiceAuditLog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +32,7 @@ export function ServiceFormModal({
   isRCV,
   saving,
   onSave,
+  recordId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -40,6 +42,7 @@ export function ServiceFormModal({
   isRCV: boolean;
   saving: boolean;
   onSave: () => void;
+  recordId?: string | null;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,6 +145,13 @@ export function ServiceFormModal({
             <Textarea placeholder="Informações adicionais..." value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3} className="resize-none" />
           </div>
         </div>
+
+        {recordId ? (
+        <div className="mt-4">
+        <div className="mb-2 text-sm font-semibold">Histórico</div>
+          <ServiceAuditLog recordId={recordId} />
+        </div>
+        ) : null}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

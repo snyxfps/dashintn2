@@ -365,6 +365,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         isRCV={serviceName === "RC-V"}
         saving={saving}
         onSave={handleSave}
+        recordId={editRecord?.id ?? null}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
