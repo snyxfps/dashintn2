@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Layers, Users, FileCheck, Truck,
+  LayoutDashboard, Layers, Users, FileCheck, Truck, History,
   ChevronLeft, ChevronRight, LogOut, Settings, Menu, X
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ const navItems = [
   { path: '/rcv', label: 'RC-V', icon: FileCheck },
   { path: '/tecnologia-logistica', label: 'Tecnologia Logística', icon: Truck },
   { path: '/tecnologia-risco', label: 'Tecnologia Risco', icon: Settings },
+  { path: '/auditoria', label: 'Auditoria', icon: History },
 ];
 
 interface AppSidebarProps {

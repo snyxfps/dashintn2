@@ -55,22 +55,25 @@ const makeEmptyForm = (serviceName: string): ServiceFormState => ({
 function missingFieldsForStatus(r: ServiceRecord, status: RecordStatus) {
   const missing: string[] = [];
 
+  const has = (v: unknown) => String(v ?? "").trim().length > 0;
+
   if (status === "NOVO") {
-    if (!r.cadastro_date) missing.push("Data do cadastro");
+    if (!has(r.cadastro_date)) missing.push("Data do cadastro");
   }
   if (status === "REUNIAO") {
-    if (!r.meeting_datetime) missing.push("Data/Hora da reunião");
+    if (!has(r.meeting_datetime)) missing.push("Data/Hora da reunião");
   }
   if (status === "FINALIZADO" || status === "CANCELADO") {
-    if (!r.end_date) missing.push("Data de conclusão");
+    if (!has(r.end_date)) missing.push("Data de conclusão");
   }
   if (status === "DEVOLVIDO") {
-    if (!r.devolucao_date) missing.push("Data da devolução");
-    if (!r.commercial) missing.push("Comercial");
+    if (!has(r.devolucao_date)) missing.push("Data da devolução");
+    if (!has(r.commercial)) missing.push("Comercial");
   }
 
   return missing;
 }
+
 
 export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { onMenuClick } = useOutletContext<OutletContext>();

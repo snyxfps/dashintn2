@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoginPage } from "@/components/LoginPage";
 import { AppLayout } from "@/components/AppLayout";
 import DashboardPage from "@/pages/DashboardGeral";
+import AuditoriaPage from "@/pages/Auditoria";
 import { ServicePage } from "@/pages/ServicePage";
 import NotFound from "./pages/NotFound";
 import DashboardGeral from "@/pages/DashboardGeral";
@@ -38,6 +39,7 @@ const ProtectedRoutes = () => {
         <Route path="rcv" element={<ServicePage serviceName="RC-V" />} />
         <Route path="tecnologia-logistica" element={<ServicePage serviceName="Tecnologia Logística" />} />
         <Route path="tecnologia-risco" element={<ServicePage serviceName="Tecnologia Risco" />} />
+        <Route path="auditoria" element={<AuditoriaPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

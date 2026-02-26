@@ -20,13 +20,6 @@ npm install
 npm run dev
 ```
 
-## Variáveis de ambiente
-
-Copie/ajuste o arquivo `.env` conforme o seu projeto Supabase.
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY` (pode ser a **anon key** do Supabase)
-
 ## Build
 
 ```bash

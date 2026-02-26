@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceRecord, RecordStatus, STATUS_CONFIG, STATUS_OPTIONS } from "@/types";
 import { AppHeader } from "@/components/AppHeader";
+import { ServiceKPIs } from "@/pages/service/components/ServiceKPIs";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   BarChart,
@@ -246,6 +247,8 @@ export default function DashboardGeral() {
           </div>
         ) : (
           <>
+            <ServiceKPIs records={filtered as any} loading={loading} />
+
             {/* filtros */}
             <div className="corp-card p-4">
               <div className="flex flex-wrap items-center gap-3">
