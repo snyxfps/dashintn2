@@ -4,7 +4,16 @@ import type { RecordStatus, ServiceRecord } from "@/types";
 import { STATUS_CONFIG, STATUS_OPTIONS } from "@/types";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, BarChart3, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,6 +24,7 @@ import { useServiceData } from "@/pages/service/hooks/useServiceData";
 import { ServiceKPIs } from "@/pages/service/components/ServiceKPIs";
 import { ServiceCharts } from "@/pages/service/components/ServiceCharts";
 import { ServiceKanban } from "@/pages/service/components/ServiceKanban";
+import { writeAuditLog } from "@/pages/service/audit/audit";
 import { ServiceFilters } from "@/pages/service/components/ServiceFilters";
 import { ServiceFormModal, type ServiceFormState } from "@/pages/service/components/ServiceFormModal";
 import { ServiceExportButton } from "@/pages/service/components/ServiceExportButton";
@@ -43,6 +53,7 @@ const makeEmptyForm = (serviceName: string): ServiceFormState => ({
 
 function missingFieldsForStatus(r: ServiceRecord, status: RecordStatus) {
   const missing: string[] = [];
+
   if (status === "NOVO") {
     if (!r.cadastro_date) missing.push("Data do cadastro");
   }
@@ -56,15 +67,25 @@ function missingFieldsForStatus(r: ServiceRecord, status: RecordStatus) {
     if (!r.devolucao_date) missing.push("Data da devolução");
     if (!r.commercial) missing.push("Comercial");
   }
+
   return missing;
 }
 
 export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { onMenuClick } = useOutletContext<OutletContext>();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
 
-  const { service, serviceMissing, records, isLoading, createService, createRecord, updateRecord, deleteRecord, moveStatus } =
-    useServiceData(serviceName);
+  const {
+    service,
+    serviceMissing,
+    records,
+    isLoading,
+    createService,
+    createRecord,
+    updateRecord,
+    deleteRecord,
+    moveStatus,
+  } = useServiceData(serviceName);
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
@@ -223,23 +244,40 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     const current = records.find((r) => r.id === id);
     if (!current) return;
 
-    const missing = missingFieldsForStatus(current, status);
+    const oldStatus = current.status;
+    const newStatus = status;
+
+    const missing = missingFieldsForStatus(current, newStatus);
     if (missing.length > 0) {
-      toast.message(`Para mover para "${STATUS_CONFIG[status].label}", preencha: ${missing.join(", ")}`);
+      toast.message(`Para mover para "${STATUS_CONFIG[newStatus].label}", preencha: ${missing.join(", ")}`);
       openEdit(current);
       setForm((f) => ({
         ...f,
-        status,
-        end_date: status === "FINALIZADO" || status === "CANCELADO" ? f.end_date || todayDateOnlyLocal() : f.end_date,
-        devolucao_date: status === "DEVOLVIDO" ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
+        status: newStatus,
+        end_date:
+          newStatus === "FINALIZADO" || newStatus === "CANCELADO"
+            ? f.end_date || todayDateOnlyLocal()
+            : f.end_date,
+        devolucao_date: newStatus === "DEVOLVIDO" ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
       }));
-      setPendingMove({ id, to: status });
+      setPendingMove({ id, to: newStatus });
       return;
     }
 
     try {
-      await moveStatus.mutateAsync({ id, status });
-      toast.success(`Registro movido para ${STATUS_CONFIG[status].label} com sucesso!`);
+      await moveStatus.mutateAsync({ id, status: newStatus });
+
+      // Auditoria não deve travar a UX se der erro de RLS/policy
+      void writeAuditLog({
+        recordId: id,
+        userId: user?.id ?? null,
+        action: "STATUS_CHANGE",
+        fieldName: "status",
+        oldValue: oldStatus,
+        newValue: newStatus,
+      });
+
+      toast.success(`Registro movido para ${STATUS_CONFIG[newStatus].label} com sucesso!`);
     } catch {
       toast.error("Erro ao atualizar status");
     }
@@ -295,7 +333,12 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               setFilterOwner={setFilterOwner}
             />
 
-            <ServiceCharts records={records} allowedStatusOptions={allowedStatusOptions} show={showChart} loading={isLoading} />
+            <ServiceCharts
+              records={records}
+              allowedStatusOptions={allowedStatusOptions}
+              show={showChart}
+              loading={isLoading}
+            />
 
             <ServiceKanban
               records={filtered}
