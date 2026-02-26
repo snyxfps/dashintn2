@@ -25,6 +25,7 @@ import { ServiceKPIs } from "@/pages/service/components/ServiceKPIs";
 import { ServiceCharts } from "@/pages/service/components/ServiceCharts";
 import { ServiceKanban } from "@/pages/service/components/ServiceKanban";
 import { writeAuditLog } from "@/pages/service/audit/audit";
+import { ServiceAuditModal } from "@/pages/service/components/ServiceAuditModal";
 import { ServiceFilters } from "@/pages/service/components/ServiceFilters";
 import { ServiceFormModal, type ServiceFormState } from "@/pages/service/components/ServiceFormModal";
 import { ServiceExportButton } from "@/pages/service/components/ServiceExportButton";
@@ -99,6 +100,15 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const [form, setForm] = useState<ServiceFormState>(() => makeEmptyForm(serviceName));
   const [saving, setSaving] = useState(false);
   const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
+
+  // Auditoria
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditRecord, setAuditRecord] = useState<ServiceRecord | null>(null);
+
+  const openAudit = (r: ServiceRecord) => {
+    setAuditRecord(r);
+    setAuditOpen(true);
+  };
 
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -366,6 +376,13 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         saving={saving}
         onSave={handleSave}
         recordId={editRecord?.id ?? null}
+      />
+
+      <ServiceAuditModal
+        open={auditOpen}
+        onOpenChange={setAuditOpen}
+        recordId={auditRecord?.id ?? null}
+        title={auditRecord ? `Histórico — ${auditRecord.client_name}` : "Histórico"}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
