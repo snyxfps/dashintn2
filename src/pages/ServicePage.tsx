@@ -1,258 +1,104 @@
-// src/pages/ServicePage.tsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG, STATUS_OPTIONS } from '@/types';
-import { AppHeader } from '@/components/AppHeader';
-import { StatusBadge } from '@/components/StatusBadge';
-import { StatusSelect } from '@/components/StatusSelect';
-import { useAuth } from '@/contexts/AuthContext';
-import { formatDateOnlyBR, todayDateOnlyLocal } from '@/lib/dateOnly';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Cell,
-  Legend,
-} from 'recharts';
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  Filter,
-  Users,
-  Activity,
-  CheckCircle,
-  XCircle,
-  RotateCcw,
-  CalendarDays,
-  BarChart3,
-  EyeOff,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import React, { useMemo, useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
+import type { RecordStatus, ServiceRecord } from "@/types";
+import { STATUS_CONFIG, STATUS_OPTIONS } from "@/types";
+import { AppHeader } from "@/components/AppHeader";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, BarChart3, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  closestCenter,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
+import { useAuth } from "@/contexts/AuthContext";
+import { todayDateOnlyLocal } from "@/lib/dateOnly";
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-const STATUS_COLORS: Record<RecordStatus, string> = {
-  NOVO: '#94a3b8',
-  REUNIAO: '#a78bfa',
-  ANDAMENTO: '#3b82f6',
-  FINALIZADO: '#22c55e',
-  CANCELADO: '#ef4444',
-  DEVOLVIDO: '#f97316',
-};
+import { useServiceData } from "@/pages/service/hooks/useServiceData";
+import { ServiceKPIs } from "@/pages/service/components/ServiceKPIs";
+import { ServiceCharts } from "@/pages/service/components/ServiceCharts";
+import { ServiceKanban } from "@/pages/service/components/ServiceKanban";
+import { ServiceFilters } from "@/pages/service/components/ServiceFilters";
+import { ServiceFormModal, type ServiceFormState } from "@/pages/service/components/ServiceFormModal";
+import { ServiceExportButton } from "@/pages/service/components/ServiceExportButton";
 
 interface OutletContext {
   onMenuClick: () => void;
 }
-
 interface ServicePageProps {
   serviceName: string;
 }
 
-const makeEmptyForm = (serviceName: string) => ({
-  client_name: '',
-  // DATE-only: manter em YYYY-MM-DD no fuso local (evita “voltar um dia”)
+const makeEmptyForm = (serviceName: string): ServiceFormState => ({
+  client_name: "",
   start_date: todayDateOnlyLocal(),
-  // Regras no banco: NOVO/REUNIAO só para RC-V.
-  status: (serviceName === 'RC-V' ? 'NOVO' : 'ANDAMENTO') as RecordStatus,
-  owner: '',
-  notes: '',
-  // Campos adicionais
-  agidesk_ticket: '',
-  cadastro_date: '',
-  meeting_datetime: '',
-  integration_type: '',
-  end_date: '',
-  devolucao_date: '',
-  commercial: '',
+  status: (serviceName === "RC-V" ? "NOVO" : "ANDAMENTO") as RecordStatus,
+  owner: "",
+  notes: "",
+  agidesk_ticket: "",
+  cadastro_date: "",
+  meeting_datetime: "",
+  integration_type: "",
+  end_date: "",
+  devolucao_date: "",
+  commercial: "",
 });
 
-function DroppableColumn({
-  id,
-  children,
-}: {
-  id: RecordStatus;
-  children: React.ReactNode;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div ref={setNodeRef} className={cn('rounded-xl transition', isOver && 'ring-2 ring-primary/40')}>
-      {children}
-    </div>
-  );
-}
-
-function DraggableCard({
-  id,
-  children,
-  disabled,
-}: {
-  id: string;
-  children: React.ReactNode;
-  disabled?: boolean;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id,
-    disabled,
-  });
-
-  const style: React.CSSProperties = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined;
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(isDragging && 'opacity-60')}
-      {...attributes}
-      {...listeners}
-    >
-      {children}
-    </div>
-  );
+function missingFieldsForStatus(r: ServiceRecord, status: RecordStatus) {
+  const missing: string[] = [];
+  if (status === "NOVO") {
+    if (!r.cadastro_date) missing.push("Data do cadastro");
+  }
+  if (status === "REUNIAO") {
+    if (!r.meeting_datetime) missing.push("Data/Hora da reunião");
+  }
+  if (status === "FINALIZADO" || status === "CANCELADO") {
+    if (!r.end_date) missing.push("Data de conclusão");
+  }
+  if (status === "DEVOLVIDO") {
+    if (!r.devolucao_date) missing.push("Data da devolução");
+    if (!r.commercial) missing.push("Comercial");
+  }
+  return missing;
 }
 
 export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { onMenuClick } = useOutletContext<OutletContext>();
   const { isAdmin } = useAuth();
 
-  const [service, setService] = useState<Service | null>(null);
-  const [serviceMissing, setServiceMissing] = useState(false);
-  const [records, setRecords] = useState<ServiceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<RecordStatus | 'ALL'>('ALL');
-  const [filterOwner, setFilterOwner] = useState('');
+  const { service, serviceMissing, records, isLoading, createService, createRecord, updateRecord, deleteRecord, moveStatus } =
+    useServiceData(serviceName);
 
-  // Dialog
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
+  const [filterOwner, setFilterOwner] = useState("");
+
+  const [showChart, setShowChart] = useState(false);
+
+  // Dialog / form
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceRecord | null>(null);
-  const [form, setForm] = useState(() => makeEmptyForm(serviceName));
+  const [form, setForm] = useState<ServiceFormState>(() => makeEmptyForm(serviceName));
   const [saving, setSaving] = useState(false);
+  const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
 
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  // UI
-  const [showChart, setShowChart] = useState(false);
-
-  // Drag “pendente” (quando precisa preencher campo obrigatório antes de efetivar)
-  const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
-
-  // DnD
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    })
-  );
-
-  const fetchData = async () => {
-    setLoading(true);
-    setServiceMissing(false);
-
-    const { data: svc, error: svcErr } = await supabase
-      .from('services')
-      .select('*')
-      .eq('name', serviceName)
-      .single();
-
-    if (svcErr || !svc) {
-      setService(null);
-      setServiceMissing(true);
-      setLoading(false);
-      return;
-    }
-
-    setService(svc as Service);
-
-    const { data: recs } = await supabase
-      .from('records')
-      .select('*')
-      .eq('service_id', svc.id)
-      .order('created_at', { ascending: false });
-
-    setRecords((recs as ServiceRecord[]) || []);
-    setLoading(false);
-  };
 
   useEffect(() => {
     setForm(makeEmptyForm(serviceName));
     setEditRecord(null);
     setDialogOpen(false);
     setPendingMove(null);
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceName]);
 
-  const handleCreateService = async () => {
-    if (!isAdmin) return;
-    try {
-      const { error } = await supabase.from('services').insert({ name: serviceName, description: null });
-      if (error) throw error;
-      toast.success('Serviço criado!');
-      fetchData();
-    } catch (e: unknown) {
-      toast.error('Erro ao criar serviço: ' + (e instanceof Error ? e.message : 'Tente novamente'));
-    }
-  };
-
-  const filtered = records.filter((r) => {
-    const matchSearch = !search || r.client_name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
-    const matchOwner = !filterOwner || (r.owner || '').toLowerCase().includes(filterOwner.toLowerCase());
-    return matchSearch && matchStatus && matchOwner;
-  });
-
-  // Status permitidos por serviço (regras no banco)
   const allowedStatusOptions: RecordStatus[] =
-    serviceName === 'RC-V' ? STATUS_OPTIONS : STATUS_OPTIONS.filter((s) => s !== 'NOVO' && s !== 'REUNIAO');
+    serviceName === "RC-V" ? STATUS_OPTIONS : STATUS_OPTIONS.filter((s) => s !== "NOVO" && s !== "REUNIAO");
 
-  // Kanban columns (sempre na ordem desejada)
   const kanbanCols: { status: RecordStatus; label: string }[] = [
-    { status: 'NOVO', label: 'Novos Clientes' },
-    { status: 'REUNIAO', label: 'Reuniões' },
-    { status: 'ANDAMENTO', label: 'Em Andamento' },
-    { status: 'FINALIZADO', label: 'Finalizados' },
-    { status: 'CANCELADO', label: 'Cancelados' },
-    { status: 'DEVOLVIDO', label: 'Devolvidos' },
+    { status: "NOVO", label: "Novos Clientes" },
+    { status: "REUNIAO", label: "Reuniões" },
+    { status: "ANDAMENTO", label: "Em Andamento" },
+    { status: "FINALIZADO", label: "Finalizados" },
+    { status: "CANCELADO", label: "Cancelados" },
+    { status: "DEVOLVIDO", label: "Devolvidos" },
   ];
 
   const visibleKanbanCols = useMemo(
@@ -260,504 +106,94 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     [allowedStatusOptions]
   );
 
-  // KPIs
-  const kpis = [
-    { label: 'Total no mês', value: records.length, icon: Users, colorVar: 'var(--status-andamento)', bgVar: 'var(--status-andamento-bg)' },
-    { label: 'Em Andamento', value: records.filter((r) => r.status === 'ANDAMENTO').length, icon: Activity, colorVar: 'var(--status-andamento)', bgVar: 'var(--status-andamento-bg)' },
-    { label: 'Finalizados', value: records.filter((r) => r.status === 'FINALIZADO').length, icon: CheckCircle, colorVar: 'var(--status-finalizado)', bgVar: 'var(--status-finalizado-bg)' },
-    { label: 'Devolvidos', value: records.filter((r) => r.status === 'DEVOLVIDO').length, icon: RotateCcw, colorVar: 'var(--status-devolvido)', bgVar: 'var(--status-devolvido-bg)' },
-    { label: 'Cancelados', value: records.filter((r) => r.status === 'CANCELADO').length, icon: XCircle, colorVar: 'var(--status-cancelado)', bgVar: 'var(--status-cancelado-bg)' },
-  ];
-
-  // =====================
-  // Analytics helpers
-  // =====================
-  const toDateOnly = (v: string | null | undefined): Date | null => {
-    const s = String(v || '').trim();
-    if (!s) return null;
-    // YYYY-MM-DD (ou ISO com hora -> corta)
-    const base = s.includes('T') ? s.split('T')[0] : s;
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(base);
-    if (!m) return null;
-    const [, yyyy, mm, dd] = m;
-    return new Date(Number(yyyy), Number(mm) - 1, Number(dd), 0, 0, 0, 0);
-  };
-
-  const toDateTime = (v: string | null | undefined): Date | null => {
-    const s = String(v || '').trim();
-    if (!s) return null;
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
-
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-  const diffDays = (a: Date, b: Date) => (startOfDay(a).getTime() - startOfDay(b).getTime()) / 86400000;
-
-  const weekStart = (d: Date) => {
-    const x = startOfDay(d);
-    // Monday as start of week
-    const day = x.getDay(); // 0..6 (Sun..Sat)
-    const delta = (day + 6) % 7; // 0 when Monday
-    x.setDate(x.getDate() - delta);
-    return x;
-  };
-
-  const fmtWeek = (d: Date) => {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    return `${dd}/${mm}`;
-  };
-
-  const getEventDateForStatus = (r: ServiceRecord): Date | null => {
-    if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') return toDateOnly(r.end_date);
-    if (r.status === 'DEVOLVIDO') return toDateOnly(r.devolucao_date);
-    if (r.status === 'REUNIAO') return toDateTime(r.meeting_datetime);
-    if (r.status === 'NOVO') return toDateOnly(r.cadastro_date) || toDateOnly(r.start_date);
-    if (r.status === 'ANDAMENTO') return toDateOnly(r.start_date);
-    return toDateOnly(r.start_date);
-  };
-
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const last7Start = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - 7);
-    return d;
-  }, [today]);
-  const prev7Start = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - 14);
-    return d;
-  }, [today]);
-
-  const thisWeekStart = useMemo(() => weekStart(today), [today]);
-
-  const threshold = {
-    finalizadosMinWeek: 10,
-    canceladosMaxWeek: 5,
-  };
-
-  // Distribuição por status (com contexto)
-  const statusContextData = useMemo(() => {
-    const total = records.length || 1;
-
-    const last7ByStatus: Record<string, number> = {};
-    const prev7ByStatus: Record<string, number> = {};
-
-    for (const r of records) {
-      const d = getEventDateForStatus(r);
-      if (!d) continue;
-      const ts = d.getTime();
-
-      if (ts >= last7Start.getTime() && ts < today.getTime()) {
-        last7ByStatus[r.status] = (last7ByStatus[r.status] || 0) + 1;
-      }
-      if (ts >= prev7Start.getTime() && ts < last7Start.getTime()) {
-        prev7ByStatus[r.status] = (prev7ByStatus[r.status] || 0) + 1;
-      }
-    }
-
-    return allowedStatusOptions.map((s) => {
-      const count = records.filter((r) => r.status === s).length;
-      const pct = (count / total) * 100;
-      const last7 = last7ByStatus[s] || 0;
-      const prev7 = prev7ByStatus[s] || 0;
-      const delta = last7 - prev7;
-
-      const alert =
-        s === 'FINALIZADO'
-          ? last7 < threshold.finalizadosMinWeek
-            ? 'ruim'
-            : 'ok'
-          : s === 'CANCELADO'
-            ? last7 > threshold.canceladosMaxWeek
-              ? 'alerta'
-              : 'ok'
-            : 'ok';
-
-      return {
-        status: s,
-        name: STATUS_CONFIG[s].label,
-        count,
-        pct,
-        last7,
-        delta,
-        alert,
-        color: STATUS_COLORS[s],
-      };
+  const filtered = useMemo(() => {
+    return records.filter((r) => {
+      const matchSearch = !search || r.client_name.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = filterStatus === "ALL" || r.status === filterStatus;
+      const matchOwner = !filterOwner || (r.owner || "").toLowerCase().includes(filterOwner.toLowerCase());
+      return matchSearch && matchStatus && matchOwner;
     });
-  }, [records, allowedStatusOptions, last7Start, prev7Start, today]);
-
-  // Throughput semanal (produção x perda)
-  const throughputWeekly = useMemo(() => {
-    const rows: Record<string, any> = {};
-
-    for (const r of records) {
-      if (!['FINALIZADO', 'CANCELADO', 'DEVOLVIDO'].includes(r.status)) continue;
-      const d = getEventDateForStatus(r);
-      if (!d) continue;
-      const ws = weekStart(d);
-      const key = ws.toISOString().slice(0, 10);
-      if (!rows[key]) {
-        rows[key] = {
-          key,
-          week: fmtWeek(ws),
-          FINALIZADO: 0,
-          CANCELADO: 0,
-          DEVOLVIDO: 0,
-        };
-      }
-      rows[key][r.status] += 1;
-    }
-
-    const sorted = Object.values(rows).sort((a: any, b: any) => (a.key > b.key ? 1 : -1));
-    return sorted.slice(-12);
-  }, [records]);
-
-  // Lead time (dias)
-  const leadTimeStats = useMemo(() => {
-    const buckets: Record<string, number[]> = { FINALIZADO: [], CANCELADO: [], DEVOLVIDO: [] };
-
-    for (const r of records) {
-      if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') {
-        const end = toDateOnly(r.end_date);
-        const start = toDateOnly(r.start_date);
-        if (end && start) buckets[r.status].push(Math.max(0, diffDays(end, start)));
-      }
-      if (r.status === 'DEVOLVIDO') {
-        const end = toDateOnly(r.devolucao_date);
-        const start = toDateOnly(r.start_date);
-        if (end && start) buckets.DEVOLVIDO.push(Math.max(0, diffDays(end, start)));
-      }
-    }
-
-    const median = (arr: number[]) => {
-      if (!arr.length) return 0;
-      const a = [...arr].sort((x, y) => x - y);
-      const mid = Math.floor(a.length / 2);
-      return a.length % 2 === 0 ? (a[mid - 1] + a[mid]) / 2 : a[mid];
-    };
-
-    const mean = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
-    const p75 = (arr: number[]) => {
-      if (!arr.length) return 0;
-      const a = [...arr].sort((x, y) => x - y);
-      const idx = Math.floor(0.75 * (a.length - 1));
-      return a[idx];
-    };
-
-    return (['FINALIZADO', 'CANCELADO', 'DEVOLVIDO'] as RecordStatus[]).map((s) => ({
-      status: s,
-      name: STATUS_CONFIG[s].label,
-      count: buckets[s].length,
-      median: Number(median(buckets[s]).toFixed(1)),
-      mean: Number(mean(buckets[s]).toFixed(1)),
-      p75: Number(p75(buckets[s]).toFixed(1)),
-      color: STATUS_COLORS[s],
-    }));
-  }, [records]);
-
-  // Aging (idade dos cards em andamento)
-  const agingBuckets = useMemo(() => {
-    const open = records.filter((r) => ['NOVO', 'REUNIAO', 'ANDAMENTO'].includes(r.status));
-    const buckets = [
-      { bucket: '0–15', from: 0, to: 15, count: 0 },
-      { bucket: '15–25', from: 15, to: 25, count: 0 },
-      { bucket: '25–45', from: 25, to: 45, count: 0 },
-      { bucket: '45+', from: 45, to: 10_000, count: 0 },
-    ];
-
-    for (const r of open) {
-      const start = toDateOnly(r.start_date);
-      if (!start) continue;
-      const age = Math.max(0, diffDays(today, start));
-      const b = buckets.find((x) => age >= x.from && age < x.to);
-      if (b) b.count += 1;
-    }
-
-    return buckets;
-  }, [records, today]);
-
-  // Ranking por responsável
-  const ownerRanking = useMemo(() => {
-    const open = records.filter((r) => ['NOVO', 'REUNIAO', 'ANDAMENTO'].includes(r.status));
-
-    const last30Start = new Date(today);
-    last30Start.setDate(last30Start.getDate() - 30);
-
-    const byOwner: Record<string, { owner: string; in_progress: number; finalized_week: number; lead_time_sum: number; lead_time_n: number }> = {};
-
-    const ensure = (owner: string) => {
-      const key = owner || '—';
-      if (!byOwner[key]) byOwner[key] = { owner: key, in_progress: 0, finalized_week: 0, lead_time_sum: 0, lead_time_n: 0 };
-      return byOwner[key];
-    };
-
-    for (const r of open) {
-      ensure(r.owner).in_progress += 1;
-    }
-
-    for (const r of records) {
-      const o = ensure(r.owner);
-      if (r.status === 'FINALIZADO') {
-        const end = toDateOnly(r.end_date);
-        if (end && end.getTime() >= thisWeekStart.getTime() && end.getTime() < today.getTime()) o.finalized_week += 1;
-      }
-
-      // lead time médio (últimos 30 dias, terminal)
-      if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') {
-        const end = toDateOnly(r.end_date);
-        const start = toDateOnly(r.start_date);
-        if (end && start && end.getTime() >= last30Start.getTime()) {
-          o.lead_time_sum += Math.max(0, diffDays(end, start));
-          o.lead_time_n += 1;
-        }
-      }
-      if (r.status === 'DEVOLVIDO') {
-        const end = toDateOnly(r.devolucao_date);
-        const start = toDateOnly(r.start_date);
-        if (end && start && end.getTime() >= last30Start.getTime()) {
-          o.lead_time_sum += Math.max(0, diffDays(end, start));
-          o.lead_time_n += 1;
-        }
-      }
-    }
-
-    return Object.values(byOwner)
-      .map((x) => ({
-        ...x,
-        lead_time_avg: x.lead_time_n ? Number((x.lead_time_sum / x.lead_time_n).toFixed(1)) : 0,
-      }))
-      .sort((a, b) => b.in_progress - a.in_progress);
-  }, [records, today, thisWeekStart]);
-
-  const ownerRankingChart = useMemo(
-    () => ownerRanking.slice(0, 10).map((o) => ({ owner: o.owner, in_progress: o.in_progress })),
-    [ownerRanking]
-  );
-
-  // Reuniões: volume + conversão
-  const meetingsWeekly = useMemo(() => {
-    const rows: Record<string, any> = {};
-    const X = 7; // dias para considerar “virou resultado”
-
-    for (const r of records) {
-      const mdt = toDateTime(r.meeting_datetime);
-      if (!mdt) continue;
-      const ws = weekStart(mdt);
-      const key = ws.toISOString().slice(0, 10);
-      if (!rows[key]) {
-        rows[key] = { key, week: fmtWeek(ws), reunioes: 0, convertidas: 0, conversao: 0 };
-      }
-      rows[key].reunioes += 1;
-
-      const isConverted = r.status !== 'REUNIAO';
-      if (!isConverted) continue;
-
-      // proxy de quando “virou”: terminal -> data do terminal; senão -> updated_at
-      const moveDate =
-        r.status === 'FINALIZADO' || r.status === 'CANCELADO'
-          ? toDateOnly(r.end_date)
-          : r.status === 'DEVOLVIDO'
-            ? toDateOnly(r.devolucao_date)
-            : toDateTime(r.updated_at);
-
-      if (!moveDate) continue;
-      const days = diffDays(moveDate, mdt);
-      if (days <= X) rows[key].convertidas += 1;
-    }
-
-    const sorted = Object.values(rows)
-      .map((r: any) => ({ ...r, conversao: r.reunioes ? Number(((r.convertidas / r.reunioes) * 100).toFixed(0)) : 0 }))
-      .sort((a: any, b: any) => (a.key > b.key ? 1 : -1));
-
-    return sorted.slice(-12);
-  }, [records]);
+  }, [records, search, filterOwner, filterStatus]);
 
   const openAdd = () => {
+    if (!isAdmin) return;
     setEditRecord(null);
     setForm(makeEmptyForm(serviceName));
     setDialogOpen(true);
-    setPendingMove(null);
   };
 
   const openEdit = (r: ServiceRecord) => {
+    if (!isAdmin) return;
     setEditRecord(r);
     setForm({
-      ...makeEmptyForm(serviceName),
-      client_name: r.client_name,
-      start_date: r.start_date,
+      client_name: r.client_name ?? "",
+      start_date: r.start_date ?? todayDateOnlyLocal(),
       status: r.status,
-      owner: r.owner,
-      notes: r.notes || '',
-      agidesk_ticket: r.agidesk_ticket || '',
-      cadastro_date: r.cadastro_date || '',
-      meeting_datetime: r.meeting_datetime || '',
-      integration_type: r.integration_type || '',
-      end_date: r.end_date || '',
-      devolucao_date: r.devolucao_date || '',
-      commercial: r.commercial || '',
+      owner: r.owner ?? "",
+      notes: r.notes ?? "",
+      agidesk_ticket: r.agidesk_ticket ?? "",
+      cadastro_date: r.cadastro_date ?? "",
+      meeting_datetime: r.meeting_datetime ?? "",
+      integration_type: r.integration_type ?? "",
+      end_date: r.end_date ?? "",
+      devolucao_date: r.devolucao_date ?? "",
+      commercial: r.commercial ?? "",
     });
     setDialogOpen(true);
   };
 
-  // === NOVO: helper de data por status para exibir no card ===
-  const getStatusDateInfo = (r: ServiceRecord): { label: string; value: string } | null => {
-    if (r.status === 'FINALIZADO' || r.status === 'CANCELADO') {
-      const v = (r.end_date || '').trim();
-      if (!v) return null;
-      return { label: r.status === 'FINALIZADO' ? 'Finalizado' : 'Cancelado', value: v };
+  const handleCreateService = async () => {
+    if (!isAdmin) return;
+    try {
+      await createService.mutateAsync();
+      toast.success("Serviço criado!");
+    } catch (e: unknown) {
+      toast.error("Erro ao criar serviço: " + (e instanceof Error ? e.message : "Tente novamente"));
     }
-    if (r.status === 'DEVOLVIDO') {
-      const v = (r.devolucao_date || '').trim();
-      if (!v) return null;
-      return { label: 'Devolvido', value: v };
-    }
-    return null;
-  };
-
-  // Retorna lista de campos obrigatórios faltando para permitir o status
-  const missingFieldsForStatus = (r: ServiceRecord, toStatus: RecordStatus): string[] => {
-    const missing: string[] = [];
-
-    if (serviceName !== 'RC-V' && (toStatus === 'NOVO' || toStatus === 'REUNIAO')) {
-      missing.push('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
-      return missing;
-    }
-
-    if (toStatus === 'NOVO') {
-      if (!String(r.agidesk_ticket || '').trim()) missing.push('Chamado Agidesk');
-      if (!String(r.cadastro_date || '').trim()) missing.push('Data de cadastro');
-    }
-
-    if (toStatus === 'REUNIAO') {
-      if (!String(r.meeting_datetime || '').trim()) missing.push('Data/hora da reunião');
-    }
-
-    if (toStatus === 'FINALIZADO' || toStatus === 'CANCELADO') {
-      if (!String(r.end_date || '').trim()) missing.push('Data fim');
-    }
-
-    if (toStatus === 'DEVOLVIDO') {
-      if (!String(r.devolucao_date || '').trim()) missing.push('Data da devolução');
-      if (!String(r.commercial || '').trim()) missing.push('Comercial');
-    }
-
-    if (serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(toStatus)) {
-      if (!String(r.integration_type || '').trim()) missing.push('Tipo de Integração');
-    }
-
-    return missing;
   };
 
   const handleSave = async () => {
-    if (!form.client_name.trim()) {
-      toast.error('Informe o nome do cliente');
-      return;
-    }
-    if (!service) {
-      toast.error('Serviço não carregado');
-      return;
-    }
-
-    // Anti-duplicado (cliente) - feedback amigável (DB já barra também)
-    const normalizedName = form.client_name.trim().toLowerCase();
-    if (form.status !== 'REUNIAO') {
-      const dup = records.find((r) => {
-        const sameName = (r.client_name || '').trim().toLowerCase() === normalizedName;
-        const sameService = r.service_id === service.id;
-        const notSelf = !editRecord || r.id !== editRecord.id;
-        const notReuniao = r.status !== 'REUNIAO';
-        return sameName && sameService && notSelf && notReuniao;
-      });
-
-      if (dup) {
-        toast.error('Já existe um card para este cliente. Abra e edite o registro existente.');
-        if (isAdmin) openEdit(dup);
-        return;
-      }
-    }
-
-    // Validações espelhando regras do banco
-    if (serviceName !== 'RC-V' && (form.status === 'NOVO' || form.status === 'REUNIAO')) {
-      toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
-      return;
-    }
-    if (form.status === 'NOVO') {
-      if (!String(form.agidesk_ticket || '').trim()) {
-        toast.error('Chamado Agidesk é obrigatório para NOVO');
-        return;
-      }
-      if (!String(form.cadastro_date || '').trim()) {
-        toast.error('Data de Cadastro é obrigatória para NOVO');
-        return;
-      }
-    }
-    if (form.status === 'REUNIAO') {
-      if (!String(form.meeting_datetime || '').trim()) {
-        toast.error('Data/hora reunião é obrigatória para REUNIÃO');
-        return;
-      }
-    }
-    if (form.status === 'FINALIZADO' || form.status === 'CANCELADO') {
-      if (!String(form.end_date || '').trim()) {
-        toast.error('Data fim é obrigatória para ' + form.status);
-        return;
-      }
-    }
-    if (form.status === 'DEVOLVIDO') {
-      if (!String(form.devolucao_date || '').trim()) {
-        toast.error('Data da devolução é obrigatória para DEVOLVIDO');
-        return;
-      }
-      if (!String(form.commercial || '').trim()) {
-        toast.error('Comercial é obrigatório para DEVOLVIDO');
-        return;
-      }
-    }
-    if (serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(form.status)) {
-      if (!String(form.integration_type || '').trim()) {
-        toast.error('Tipo de Integração é obrigatório para RC-V');
-        return;
-      }
-    }
+    if (!isAdmin) return;
+    if (!service?.id) return;
 
     setSaving(true);
     try {
+      const payloadBase = {
+        service_id: service.id,
+        client_name: form.client_name.trim(),
+        start_date: form.start_date,
+        status: form.status,
+        owner: form.owner,
+        notes: form.notes || null,
+        agidesk_ticket: form.agidesk_ticket || null,
+        cadastro_date: form.cadastro_date || null,
+        meeting_datetime: form.meeting_datetime || null,
+        integration_type: form.integration_type || null,
+        end_date: form.end_date || null,
+        devolucao_date: form.devolucao_date || null,
+        commercial: form.commercial || null,
+      };
+
       if (editRecord) {
-        const payload: any = { ...form };
-        ['cadastro_date', 'end_date', 'devolucao_date'].forEach((k) => {
-          if (!payload[k]) payload[k] = null;
-        });
-        if (!payload.meeting_datetime) payload.meeting_datetime = null;
-
-        const { error } = await supabase.from('records').update(payload).eq('id', editRecord.id).select('id').single();
-        if (error) throw error;
-
-        toast.success('Registro atualizado!');
+        await updateRecord.mutateAsync({ id: editRecord.id, patch: payloadBase as any });
+        toast.success("Registro atualizado!");
       } else {
-        const payload: any = { ...form, service_id: service.id };
-        ['cadastro_date', 'end_date', 'devolucao_date'].forEach((k) => {
-          if (!payload[k]) payload[k] = null;
-        });
-        if (!payload.meeting_datetime) payload.meeting_datetime = null;
-
-        const { error } = await supabase.from('records').insert(payload).select('id').single();
-        if (error) throw error;
-
-        toast.success('Registro adicionado!');
+        await createRecord.mutateAsync(payloadBase as any);
+        toast.success("Registro criado!");
       }
 
-      await fetchData();
+      // se havia um move pendente, efetiva agora (status já no form)
+      if (pendingMove) {
+        setPendingMove(null);
+      }
+
       setDialogOpen(false);
-      setEditRecord(null);
-      setForm(makeEmptyForm(serviceName));
-      setPendingMove(null);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Tente novamente';
-      if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('23505')) {
-        toast.error('Já existe um card para este cliente (exceto Reunião). Abra e edite o existente.');
+      const msg = e instanceof Error ? e.message : "Tente novamente";
+      if (String(msg).toLowerCase().includes("duplicate") || String(msg).includes("23505")) {
+        toast.error("Já existe um card para este cliente (exceto Reunião). Abra e edite o existente.");
       } else {
-        toast.error('Erro ao salvar: ' + msg);
+        toast.error("Erro ao salvar: " + msg);
       }
     } finally {
       setSaving(false);
@@ -766,18 +202,21 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from('records').delete().eq('id', deleteId);
-    if (error) toast.error('Erro ao excluir');
-    else {
-      toast.success('Registro excluído!');
-      fetchData();
+    try {
+      await deleteRecord.mutateAsync(deleteId);
+      toast.success("Registro excluído!");
+    } catch {
+      toast.error("Erro ao excluir");
+    } finally {
+      setDeleteId(null);
     }
-    setDeleteId(null);
   };
 
-  const handleStatusChange = async (id: string, status: RecordStatus) => {
-    if (serviceName !== 'RC-V' && (status === 'NOVO' || status === 'REUNIAO')) {
-      toast.error('Status NOVO/REUNIÃO só é permitido no serviço RC-V');
+  const handleMove = async (id: string, status: RecordStatus) => {
+    if (!isAdmin) return;
+
+    if (serviceName !== "RC-V" && (status === "NOVO" || status === "REUNIAO")) {
+      toast.error("Status NOVO/REUNIÃO só é permitido no serviço RC-V");
       return;
     }
 
@@ -786,72 +225,25 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
     const missing = missingFieldsForStatus(current, status);
     if (missing.length > 0) {
-      toast.message(`Para mover para "${STATUS_CONFIG[status].label}", preencha: ${missing.join(', ')}`);
+      toast.message(`Para mover para "${STATUS_CONFIG[status].label}", preencha: ${missing.join(", ")}`);
       openEdit(current);
       setForm((f) => ({
         ...f,
         status,
-        end_date: status === 'FINALIZADO' || status === 'CANCELADO' ? f.end_date || todayDateOnlyLocal() : f.end_date,
-        devolucao_date: status === 'DEVOLVIDO' ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
+        end_date: status === "FINALIZADO" || status === "CANCELADO" ? f.end_date || todayDateOnlyLocal() : f.end_date,
+        devolucao_date: status === "DEVOLVIDO" ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
       }));
       setPendingMove({ id, to: status });
       return;
     }
 
-    const { error } = await supabase.from('records').update({ status }).eq('id', id);
-    if (error) toast.error('Erro ao atualizar status');
-    else fetchData();
-  };
-
-  const owners = [...new Set(records.map((r) => r.owner).filter(Boolean))];
-
-  const onDragStart = (e: DragStartEvent) => {
-    setActiveDragId(String(e.active.id));
-  };
-
-  const onDragEnd = (e: DragEndEvent) => {
-    setActiveDragId(null);
-    if (!isAdmin) return;
-
-    const { active, over } = e;
-    if (!over) return;
-
-    const recordId = String(active.id);
-    const newStatus = String(over.id) as RecordStatus;
-
-    const current = records.find((r) => r.id === recordId);
-    if (!current) return;
-    if (current.status === newStatus) return;
-
-    if (!allowedStatusOptions.includes(newStatus)) {
-      toast.error('Status não permitido para este serviço.');
-      return;
+    try {
+      await moveStatus.mutateAsync({ id, status });
+      toast.success(`Registro movido para ${STATUS_CONFIG[status].label} com sucesso!`);
+    } catch {
+      toast.error("Erro ao atualizar status");
     }
-
-    const missing = missingFieldsForStatus(current, newStatus);
-    if (missing.length > 0) {
-      toast.message(`Para mover para "${STATUS_CONFIG[newStatus].label}", preencha: ${missing.join(', ')}`);
-
-      openEdit(current);
-
-      setForm((f) => ({
-        ...f,
-        status: newStatus,
-        end_date: newStatus === 'FINALIZADO' || newStatus === 'CANCELADO' ? f.end_date || todayDateOnlyLocal() : f.end_date,
-        devolucao_date: newStatus === 'DEVOLVIDO' ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
-      }));
-
-      setPendingMove({ id: recordId, to: newStatus });
-      return;
-    }
-
-    handleStatusChange(recordId, newStatus);
   };
-
-  const activeRecord = useMemo(
-    () => (activeDragId ? records.find((r) => r.id === activeDragId) : null),
-    [activeDragId, records]
-  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -863,721 +255,75 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         onSearchChange={setSearch}
         actions={
           isAdmin ? (
-            <Button size="sm" onClick={openAdd} className="h-9">
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-              Adicionar
-            </Button>
+            <div className="flex items-center gap-2">
+              <ServiceExportButton rows={filtered} fileBaseName={serviceName} />
+              <Button size="sm" variant="outline" className="h-9" onClick={() => setShowChart((v) => !v)}>
+                {showChart ? <EyeOff className="w-3.5 h-3.5 mr-1.5" /> : <BarChart3 className="w-3.5 h-3.5 mr-1.5" />}
+                {showChart ? "Ocultar gráficos" : "Ver gráficos"}
+              </Button>
+              <Button size="sm" onClick={openAdd} className="h-9">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                Adicionar
+              </Button>
+            </div>
           ) : undefined
         }
       />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+        {serviceMissing ? (
+          <div className="p-6 rounded-xl border bg-card">
+            <h2 className="text-lg font-semibold">Serviço não encontrado</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              O serviço <span className="font-medium">{serviceName}</span> não existe no seu Supabase.
+            </p>
+            {isAdmin ? (
+              <Button onClick={handleCreateService} className="mt-4">
+                Criar serviço agora
+              </Button>
+            ) : null}
           </div>
         ) : (
           <>
-            {serviceMissing && (
-              <div className="p-6 rounded-xl border bg-card">
-                <h2 className="text-lg font-semibold">Serviço não encontrado</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  O serviço <span className="font-medium">{serviceName}</span> não existe no seu Supabase.
-                </p>
-                {isAdmin ? (
-                  <div className="mt-4">
-                    <Button onClick={handleCreateService}>Criar serviço</Button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-4">Peça para um administrador criar este serviço.</p>
-                )}
-              </div>
-            )}
+            <ServiceKPIs records={records} loading={isLoading} />
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {kpis.map((kpi) => (
-                <div key={kpi.label} className="kpi-card">
-                  <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center"
-                    style={{ background: `hsl(${kpi.bgVar})`, color: `hsl(${kpi.colorVar})` }}
-                  >
-                    <kpi.icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
-                    <div className="text-xs text-muted-foreground">{kpi.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ServiceFilters
+              allowedStatusOptions={allowedStatusOptions}
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              filterOwner={filterOwner}
+              setFilterOwner={setFilterOwner}
+            />
 
-            {/* Kanban */}
-            <div className="corp-card p-5">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-sm font-semibold text-foreground">Kanban por status</h3>
+            <ServiceCharts records={records} allowedStatusOptions={allowedStatusOptions} show={showChart} loading={isLoading} />
 
-                <Button variant="outline" size="sm" onClick={() => setShowChart((v) => !v)} className="h-8">
-                  {showChart ? (
-                    <>
-                      <EyeOff className="w-4 h-4 mr-2" />
-                      Ocultar gráfico
-                    </>
-                  ) : (
-                    <>
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Mostrar gráfico
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                  {visibleKanbanCols.map((col) => {
-                    const colRecords = records.filter((r) => r.status === col.status);
-                    const cfg = STATUS_CONFIG[col.status];
-
-                    return (
-                      <div key={col.status} className="min-w-0">
-                        <DroppableColumn id={col.status}>
-                          <div className="rounded-xl border bg-background/40 overflow-hidden">
-                            {/* Header fixo da coluna */}
-                            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur px-2 py-2 border-b">
-                              <div className="flex items-center gap-2">
-                                <span className={cfg.className}>{cfg.label}</span>
-                                <span className="text-xs text-muted-foreground">({colRecords.length})</span>
-                              </div>
-                            </div>
-
-                            {/* Lista com scroll interno */}
-                            <div className="space-y-2 p-2 max-h-[70vh] overflow-y-auto">
-                              {colRecords.map((r) => {
-                                const statusDate = getStatusDateInfo(r);
-
-                                return (
-                                  <DraggableCard key={r.id} id={r.id} disabled={!isAdmin}>
-                                    <div
-                                      className={cn('corp-card p-3 hover:shadow-md transition-shadow', isAdmin ? 'cursor-pointer' : 'cursor-default')}
-                                      onClick={() => {
-                                        if (isAdmin) openEdit(r);
-                                      }}
-                                    >
-                                      <div className="text-xs font-semibold text-foreground leading-tight mb-1">{r.client_name}</div>
-                                      <div className="text-xs text-muted-foreground">{r.owner}</div>
-
-                                      {/* Data principal: início (sempre) */}
-                                      <div className="text-xs text-muted-foreground mt-1">
-                                        <span className="opacity-80">Início:</span> {formatDateOnlyBR(r.start_date)}
-                                      </div>
-
-                                      {/* ✅ NOVO: Data por status quando finalizado/cancelado/devolvido */}
-                                      {statusDate && (
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                          <span className="opacity-80">{statusDate.label}:</span> {formatDateOnlyBR(statusDate.value)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </DraggableCard>
-                                );
-                              })}
-
-                              {colRecords.length === 0 && (
-                                <div className="h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-                                  Vazio
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </DroppableColumn>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <DragOverlay>
-                  {activeRecord ? (() => {
-                    const statusDate = getStatusDateInfo(activeRecord);
-                    return (
-                      <div className="corp-card p-3 w-56 shadow-lg">
-                        <div className="text-xs font-semibold text-foreground leading-tight mb-1">{activeRecord.client_name}</div>
-                        <div className="text-xs text-muted-foreground">{activeRecord.owner}</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          <span className="opacity-80">Início:</span> {formatDateOnlyBR(activeRecord.start_date)}
-                        </div>
-                        {statusDate && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            <span className="opacity-80">{statusDate.label}:</span> {formatDateOnlyBR(statusDate.value)}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })() : null}
-                </DragOverlay>
-              </DndContext>
-            </div>
-
-            {/* Analytics (abaixo e opcional) */}
-            {showChart && (
-              <div className="space-y-4">
-                {/* 1) Distribuição por status (com contexto) */}
-                <div className="corp-card p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">Distribuição por status</h3>
-                      <div className="text-xs text-muted-foreground">
-                        % do total + tendência (últimos 7 dias vs 7 dias anteriores) + alertas de meta
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="px-2 py-1 rounded-md border">Finalizados &lt; {threshold.finalizadosMinWeek}/7d = ruim</span>
-                      <span className="px-2 py-1 rounded-md border">Cancelados &gt; {threshold.canceladosMaxWeek}/7d = alerta</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/30">
-                            <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Status</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Qtd</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">%</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">7d</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Δ 7d</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {statusContextData.map((s) => (
-                            <tr key={s.status}>
-                              <td className="px-3 py-2 text-xs">
-                                <div className="flex items-center gap-2">
-                                  <span className={cn('w-2 h-2 rounded-full', STATUS_CONFIG[s.status].dot)} />
-                                  <span className="text-foreground">{s.name}</span>
-                                  {s.alert !== 'ok' && (
-                                    <span
-                                      className={cn(
-                                        'text-[10px] px-2 py-0.5 rounded-full border',
-                                        s.alert === 'ruim' && 'border-red-500/30 text-red-500',
-                                        s.alert === 'alerta' && 'border-amber-500/30 text-amber-600'
-                                      )}
-                                    >
-                                      {s.alert}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-right text-xs text-foreground font-medium">{s.count}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.pct.toFixed(0)}%</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.last7}</td>
-                              <td className={cn('px-3 py-2 text-right text-xs', s.delta >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
-                                {s.delta >= 0 ? `+${s.delta}` : s.delta}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <BarChart data={statusContextData} layout="vertical" barSize={14}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
-                          <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                          <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={140} />
-                          <RechartsTooltip
-                            contentStyle={{ borderRadius: 8, fontSize: 11 }}
-                            formatter={(value: any, _name: any, props: any) => {
-                              const pct = props?.payload?.pct;
-                              return [`${value} (${pct?.toFixed?.(0)}%)`, 'Qtd'];
-                            }}
-                          />
-                          <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                            {statusContextData.map((entry, i) => (
-                              <Cell key={i} fill={entry.color} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2) Throughput (por semana) */}
-                <div className="corp-card p-5">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Throughput (por semana)</h3>
-                    <div className="text-xs text-muted-foreground">Finalizado x Cancelado x Devolvido (últimas 12 semanas)</div>
-                  </div>
-
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={throughputWeekly} barSize={18}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-                      <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
-                      <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="FINALIZADO" stackId="a" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="CANCELADO" stackId="a" fill={STATUS_COLORS.CANCELADO} />
-                      <Bar dataKey="DEVOLVIDO" stackId="a" fill={STATUS_COLORS.DEVOLVIDO} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* 3) Lead time */}
-                <div className="corp-card p-5">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Lead time (dias)</h3>
-                    <div className="text-xs text-muted-foreground">Tempo até concluir/cancelar/devolver (média, mediana e P75)</div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <BarChart data={leadTimeStats} barSize={18}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                          <YAxis tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                          <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar dataKey="median" name="Mediana" fill="hsl(220 15% 45%)" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="mean" name="Média" fill="hsl(220 15% 65%)" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/30">
-                            <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Status</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">N</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Mediana</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Média</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">P75</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {leadTimeStats.map((s) => (
-                            <tr key={s.status}>
-                              <td className="px-3 py-2 text-xs text-foreground">{s.name}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.count}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.median}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.mean}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{s.p75}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Dica: se a mediana subir semana a semana, é sinal de gargalo.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4) Aging */}
-                <div className="corp-card p-5">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Aging (cards em andamento)</h3>
-                    <div className="text-xs text-muted-foreground">Quanto tempo os cards abertos estão “envelhecendo”</div>
-                  </div>
-
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={agingBuckets} barSize={22}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-                      <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
-                      <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                      <Bar dataKey="count" name="Cards" fill={STATUS_COLORS.ANDAMENTO} radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* 5) Ranking por responsável */}
-                <div className="corp-card p-5">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Ranking por responsável</h3>
-                    <div className="text-xs text-muted-foreground">Carga (em andamento), produção (finalizados na semana) e lead time médio (30d)</div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <BarChart data={ownerRankingChart} layout="vertical" barSize={14}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
-                          <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
-                          <YAxis type="category" dataKey="owner" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} width={140} />
-                          <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                          <Bar dataKey="in_progress" name="Em andamento" fill={STATUS_COLORS.ANDAMENTO} radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                      <div className="text-xs text-muted-foreground mt-2">Top 10 por carga atual.</div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/30">
-                            <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Owner</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Em andamento</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Finalizados (semana)</th>
-                            <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Lead time médio (30d)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {ownerRanking.map((o) => (
-                            <tr key={o.owner}>
-                              <td className="px-3 py-2 text-xs text-foreground">{o.owner}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{o.in_progress}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{o.finalized_week}</td>
-                              <td className="px-3 py-2 text-right text-xs text-muted-foreground">{o.lead_time_avg}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 6) Reuniões operacionais */}
-                <div className="corp-card p-5">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">Reuniões operacionais</h3>
-                    <div className="text-xs text-muted-foreground">Volume por semana + conversão em até 7 dias (proxy)</div>
-                  </div>
-
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={meetingsWeekly} barSize={18}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-                      <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} allowDecimals={false} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'hsl(220 15% 50%)' }} domain={[0, 100]} />
-                      <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar yAxisId="left" dataKey="reunioes" name="Reuniões" fill={STATUS_COLORS.REUNIAO} radius={[4, 4, 0, 0]} />
-                      <Bar yAxisId="left" dataKey="convertidas" name="Convertidas (≤7d)" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
-                      <Bar yAxisId="right" dataKey="conversao" name="Conversão %" fill={STATUS_COLORS.ANDAMENTO} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-
-                  <div className="text-xs text-muted-foreground mt-2">
-                    Observação: a conversão usa <span className="font-medium">updated_at</span> como proxy de “virou status”, pois não há histórico de transição.
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Filters + Table */}
-            <div className="corp-card overflow-hidden">
-              <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-border">
-                <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-
-                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as RecordStatus | 'ALL')}>
-                  <SelectTrigger className="h-8 w-40 text-xs">
-                    <SelectValue placeholder="Todos os status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos os status</SelectItem>
-                    {allowedStatusOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_CONFIG[s].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterOwner || 'ALL'} onValueChange={(v) => setFilterOwner(v === 'ALL' ? '' : v)}>
-                  <SelectTrigger className="h-8 w-40 text-xs">
-                    <SelectValue placeholder="Responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos</SelectItem>
-                    {owners.map((o) => (
-                      <SelectItem key={o} value={o}>
-                        {o}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="ml-auto text-xs text-muted-foreground">
-                  {filtered.length} de {records.length} registros
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <TooltipProvider delayDuration={200}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/30">
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">
-                          Responsável
-                        </th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">
-                          Data início
-                        </th>
-                        <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden lg:table-cell">
-                          Observações
-                        </th>
-                        {isAdmin && (
-                          <th className="text-right text-xs font-semibold text-muted-foreground px-5 py-3">Ações</th>
-                        )}
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-border">
-                      {filtered.length === 0 ? (
-                        <tr>
-                          <td colSpan={isAdmin ? 6 : 5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                            Nenhum registro encontrado.
-                          </td>
-                        </tr>
-                      ) : (
-                        filtered.map((r) => {
-                          const notes = (r.notes || '').trim();
-                          return (
-                            <tr
-                              key={r.id}
-                              className={cn('table-row-hover', isAdmin && 'cursor-pointer')}
-                              onClick={() => {
-                                if (isAdmin) openEdit(r);
-                              }}
-                            >
-                              <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
-
-                              <td className="px-3 py-3 min-w-[190px]">
-                                {isAdmin ? (
-                                  <StatusSelect
-                                    value={r.status}
-                                    onChange={(s) => handleStatusChange(r.id, s)}
-                                    allowedStatuses={allowedStatusOptions}
-                                  />
-                                ) : (
-                                  <StatusBadge status={r.status} />
-                                )}
-                              </td>
-
-                              <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner || '-'}</td>
-
-                              <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
-                                <div className="flex items-center gap-1.5">
-                                  <CalendarDays className="w-3 h-3" />
-                                  {formatDateOnlyBR(r.start_date)}
-                                </div>
-                              </td>
-
-                              <td className="px-3 py-3 text-muted-foreground text-xs hidden lg:table-cell max-w-[380px]">
-                                {notes ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="line-clamp-2 whitespace-normal break-words">{notes}</div>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-[520px] whitespace-pre-wrap break-words text-xs">
-                                      {notes}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ) : (
-                                  '-'
-                                )}
-                              </td>
-
-                              {isAdmin && (
-                                <td className="px-5 py-3 text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openEdit(r);
-                                      }}
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </Button>
-
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-destructive hover:text-destructive"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteId(r.id);
-                                      }}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </TooltipProvider>
-              </div>
-            </div>
+            <ServiceKanban
+              records={filtered}
+              visibleCols={visibleKanbanCols}
+              allowedStatusOptions={allowedStatusOptions}
+              isAdmin={isAdmin}
+              onEdit={openEdit}
+              onAskDelete={(id) => setDeleteId(id)}
+              onMove={handleMove}
+            />
           </>
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editRecord ? 'Editar Registro' : 'Novo Registro'}</DialogTitle>
-          </DialogHeader>
+      <ServiceFormModal
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setPendingMove(null);
+        }}
+        title={editRecord ? "Editar registro" : "Novo registro"}
+        form={form}
+        setForm={setForm}
+        isRCV={serviceName === "RC-V"}
+        saving={saving}
+        onSave={handleSave}
+      />
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome do cliente *</Label>
-              <Input
-                placeholder="Nome da empresa/cliente"
-                value={form.client_name}
-                onChange={(e) => setForm((f) => ({ ...f, client_name: e.target.value }))}
-              />
-            </div>
-
-            {form.status === 'NOVO' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Chamado Agidesk *</Label>
-                  <Input
-                    placeholder="Ex: AGI-12345"
-                    value={form.agidesk_ticket}
-                    onChange={(e) => setForm((f) => ({ ...f, agidesk_ticket: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Data de cadastro *</Label>
-                  <Input
-                    type="date"
-                    value={form.cadastro_date}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, cadastro_date: e.target.value, start_date: e.target.value || f.start_date }))
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {form.status === 'REUNIAO' && (
-              <div className="space-y-1.5">
-                <Label>Data/hora da reunião *</Label>
-                <Input
-                  type="datetime-local"
-                  value={form.meeting_datetime}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    const dateOnly = v ? v.split('T')[0] : '';
-                    setForm((f) => ({ ...f, meeting_datetime: v, start_date: dateOnly || f.start_date }));
-                  }}
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Data de início *</Label>
-                <Input type="date" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status *</Label>
-                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as RecordStatus }))}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowedStatusOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_CONFIG[s].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {serviceName === 'RC-V' && ['ANDAMENTO', 'FINALIZADO', 'CANCELADO'].includes(form.status) && (
-              <div className="space-y-1.5">
-                <Label>Tipo de Integração *</Label>
-                <Input
-                  placeholder="Ex: API / Webhook / Batch"
-                  value={form.integration_type}
-                  onChange={(e) => setForm((f) => ({ ...f, integration_type: e.target.value }))}
-                />
-              </div>
-            )}
-
-            {['FINALIZADO', 'CANCELADO'].includes(form.status) && (
-              <div className="space-y-1.5">
-                <Label>Data fim *</Label>
-                <Input type="date" value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} />
-              </div>
-            )}
-
-            {form.status === 'DEVOLVIDO' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Data da devolução *</Label>
-                  <Input
-                    type="date"
-                    value={form.devolucao_date}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, devolucao_date: e.target.value, start_date: e.target.value || f.start_date }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Comercial *</Label>
-                  <Input
-                    placeholder="Responsável comercial"
-                    value={form.commercial}
-                    onChange={(e) => setForm((f) => ({ ...f, commercial: e.target.value }))}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label>Responsável</Label>
-              <Input placeholder="Nome do responsável" value={form.owner} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Observações</Label>
-              <Textarea
-                placeholder="Informações adicionais..."
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDialogOpen(false);
-                setPendingMove(null);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={saving || !form.client_name.trim()}>
-              {saving ? 'Salvando...' : editRecord ? 'Salvar alterações' : 'Adicionar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirm */}
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
