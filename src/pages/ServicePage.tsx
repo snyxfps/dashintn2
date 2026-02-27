@@ -25,7 +25,6 @@ import { ServiceKPIs } from "@/pages/service/components/ServiceKPIs";
 import { ServiceCharts } from "@/pages/service/components/ServiceCharts";
 import { ServiceKanban } from "@/pages/service/components/ServiceKanban";
 import { writeAuditLog } from "@/pages/service/audit/audit";
-import { ServiceAuditModal } from "@/pages/service/components/ServiceAuditModal";
 import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
 import { ServiceFilters } from "@/pages/service/components/ServiceFilters";
 import { ServiceFormModal, type ServiceFormState } from "@/pages/service/components/ServiceFormModal";
@@ -53,9 +52,8 @@ const makeEmptyForm = (serviceName: string): ServiceFormState => ({
   commercial: "",
 });
 
-function missingFieldsForStatus(r: ServiceRecord, status: RecordStatus) {
+function missingFieldsForStatus(r: Partial<ServiceRecord>, status: RecordStatus) {
   const missing: string[] = [];
-
   const has = (v: unknown) => String(v ?? "").trim().length > 0;
 
   if (status === "NOVO") {
@@ -75,6 +73,27 @@ function missingFieldsForStatus(r: ServiceRecord, status: RecordStatus) {
   return missing;
 }
 
+function normalizePayloadForCompare(form: ServiceFormState) {
+  const trimOrNull = (v: string) => {
+    const t = (v ?? "").trim();
+    return t.length ? t : null;
+  };
+
+  return {
+    client_name: trimOrNull(form.client_name),
+    start_date: trimOrNull(form.start_date),
+    status: form.status,
+    owner: trimOrNull(form.owner),
+    notes: trimOrNull(form.notes),
+    agidesk_ticket: trimOrNull(form.agidesk_ticket),
+    cadastro_date: trimOrNull(form.cadastro_date),
+    meeting_datetime: trimOrNull(form.meeting_datetime),
+    integration_type: trimOrNull(form.integration_type),
+    end_date: trimOrNull(form.end_date),
+    devolucao_date: trimOrNull(form.devolucao_date),
+    commercial: trimOrNull(form.commercial),
+  };
+}
 
 export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const { onMenuClick } = useOutletContext<OutletContext>();
@@ -105,13 +124,13 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const [saving, setSaving] = useState(false);
   const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
 
-  // Auditoria
-  const [auditOpen, setAuditOpen] = useState(false);
-  const [auditRecord, setAuditRecord] = useState<ServiceRecord | null>(null);
+  // Details (Sheet)
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsRecord, setDetailsRecord] = useState<ServiceRecord | null>(null);
 
-  const openAudit = (r: ServiceRecord) => {
-    setAuditRecord(r);
-    setAuditOpen(true);
+  const openDetails = (r: ServiceRecord) => {
+    setDetailsRecord(r);
+    setDetailsOpen(true);
   };
 
   // Delete
@@ -187,49 +206,132 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     }
   };
 
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailsRecord, setDetailsRecord] = useState<ServiceRecord | null>(null);
-
-  const openDetails = (r: ServiceRecord) => {
-    setDetailsRecord(r);
-    setDetailsOpen(true);
-  };
-
   const handleSave = async () => {
     if (!isAdmin) return;
     if (!service?.id) return;
 
+    // ✅ validação também no modal (evita “burlar” regra pelo Save)
+    const missing = missingFieldsForStatus(form as any, form.status);
+    if (missing.length > 0) {
+      toast.message(`Para salvar como "${STATUS_CONFIG[form.status].label}", preencha: ${missing.join(", ")}`);
+      return;
+    }
+
     setSaving(true);
     try {
+      const base = normalizePayloadForCompare(form);
+
       const payloadBase = {
         service_id: service.id,
-        client_name: form.client_name.trim(),
-        start_date: form.start_date,
-        status: form.status,
-        owner: form.owner,
-        notes: form.notes || null,
-        agidesk_ticket: form.agidesk_ticket || null,
-        cadastro_date: form.cadastro_date || null,
-        meeting_datetime: form.meeting_datetime || null,
-        integration_type: form.integration_type || null,
-        end_date: form.end_date || null,
-        devolucao_date: form.devolucao_date || null,
-        commercial: form.commercial || null,
+        client_name: base.client_name ?? "",
+        start_date: base.start_date ?? todayDateOnlyLocal(),
+        status: base.status,
+        owner: base.owner ?? "",
+        notes: base.notes,
+        agidesk_ticket: base.agidesk_ticket,
+        cadastro_date: base.cadastro_date,
+        meeting_datetime: base.meeting_datetime,
+        integration_type: base.integration_type,
+        end_date: base.end_date,
+        devolucao_date: base.devolucao_date,
+        commercial: base.commercial,
       };
 
       if (editRecord) {
+        // ===== UPDATE / STATUS_CHANGE via modal =====
+        const old = {
+          client_name: (editRecord.client_name ?? "").trim() || null,
+          start_date: (editRecord.start_date ?? "").trim() || null,
+          status: editRecord.status,
+          owner: (editRecord.owner ?? "").trim() || null,
+          notes: (editRecord.notes ?? "").trim() || null,
+          agidesk_ticket: (editRecord.agidesk_ticket ?? "").trim() || null,
+          cadastro_date: (editRecord.cadastro_date ?? "").trim() || null,
+          meeting_datetime: (editRecord.meeting_datetime ?? "").trim() || null,
+          integration_type: (editRecord.integration_type ?? "").trim() || null,
+          end_date: (editRecord.end_date ?? "").trim() || null,
+          devolucao_date: (editRecord.devolucao_date ?? "").trim() || null,
+          commercial: (editRecord.commercial ?? "").trim() || null,
+        };
+
         await updateRecord.mutateAsync({ id: editRecord.id, patch: payloadBase as any });
+
+        // UPDATE geral (sempre que salva)
+        void writeAuditLog({
+          recordId: editRecord.id,
+          userId: user?.id ?? null,
+          action: "UPDATE",
+          fieldName: null,
+          oldValue: `status=${old.status}`,
+          newValue: `status=${base.status}`,
+        });
+
+        // STATUS_CHANGE específico (se mudou status)
+        if (old.status !== base.status) {
+          void writeAuditLog({
+            recordId: editRecord.id,
+            userId: user?.id ?? null,
+            action: "STATUS_CHANGE",
+            fieldName: "status",
+            oldValue: old.status,
+            newValue: base.status,
+          });
+        }
+
+        // (Opcional) detalhar mudanças mais importantes sem floodar:
+        const maybeLogField = (field: keyof typeof old, label: string) => {
+          const ov = old[field];
+          const nv = (base as any)[field];
+          if (String(ov ?? "") !== String(nv ?? "")) {
+            void writeAuditLog({
+              recordId: editRecord.id,
+              userId: user?.id ?? null,
+              action: "UPDATE",
+              fieldName: label,
+              oldValue: ov,
+              newValue: nv,
+            });
+          }
+        };
+
+        // Campos que vale a pena rastrear
+        maybeLogField("owner", "owner");
+        maybeLogField("integration_type", "integration_type");
+        maybeLogField("agidesk_ticket", "agidesk_ticket");
+        maybeLogField("end_date", "end_date");
+        maybeLogField("devolucao_date", "devolucao_date");
+        maybeLogField("commercial", "commercial");
+
         toast.success("Registro atualizado!");
       } else {
-        await createRecord.mutateAsync(payloadBase as any);
+        // ===== CREATE =====
+        const created = await createRecord.mutateAsync(payloadBase as any);
+
+        // tenta descobrir o id criado (depende de como sua mutation retorna)
+        const createdId =
+          (created && typeof created === "object" && "id" in created && (created as any).id) ||
+          (Array.isArray(created) && created[0]?.id) ||
+          null;
+
+        if (createdId) {
+          void writeAuditLog({
+            recordId: String(createdId),
+            userId: user?.id ?? null,
+            action: "CREATE",
+            fieldName: null,
+            oldValue: null,
+            newValue: `status=${base.status}`,
+          });
+        } else {
+          // Se sua mutation não retorna id, não tem recordId pra logar.
+          // Você pode optar por remover este bloco, mas deixei pra não “sumir” o evento.
+          console.warn("CREATE audit: createRecord não retornou id. Ajuste a mutation para retornar o registro criado.");
+        }
+
         toast.success("Registro criado!");
       }
 
-      // se havia um move pendente, efetiva agora (status já no form)
-      if (pendingMove) {
-        setPendingMove(null);
-      }
-
+      if (pendingMove) setPendingMove(null);
       setDialogOpen(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Tente novamente";
@@ -245,7 +347,22 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    // captura info antes de deletar (pra auditoria ficar útil)
+    const rec = records.find((r) => r.id === deleteId);
+    const snapshot = rec ? `${rec.client_name} | status=${rec.status}` : `id=${deleteId}`;
+
     try {
+      // audita ANTES (se existir FK cascade na auditoria, auditar depois pode perder o log)
+      void writeAuditLog({
+        recordId: deleteId,
+        userId: user?.id ?? null,
+        action: "DELETE",
+        fieldName: null,
+        oldValue: snapshot,
+        newValue: null,
+      });
+
       await deleteRecord.mutateAsync(deleteId);
       toast.success("Registro excluído!");
     } catch {
@@ -277,9 +394,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         ...f,
         status: newStatus,
         end_date:
-          newStatus === "FINALIZADO" || newStatus === "CANCELADO"
-            ? f.end_date || todayDateOnlyLocal()
-            : f.end_date,
+          newStatus === "FINALIZADO" || newStatus === "CANCELADO" ? f.end_date || todayDateOnlyLocal() : f.end_date,
         devolucao_date: newStatus === "DEVOLVIDO" ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
       }));
       setPendingMove({ id, to: newStatus });
@@ -289,7 +404,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     try {
       await moveStatus.mutateAsync({ id, status: newStatus });
 
-      // Auditoria não deve travar a UX se der erro de RLS/policy
       void writeAuditLog({
         recordId: id,
         userId: user?.id ?? null,
@@ -355,12 +469,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
               setFilterOwner={setFilterOwner}
             />
 
-            <ServiceCharts
-              records={records}
-              allowedStatusOptions={allowedStatusOptions}
-              show={showChart}
-              loading={isLoading}
-            />
+            <ServiceCharts records={records} allowedStatusOptions={allowedStatusOptions} show={showChart} loading={isLoading} />
 
             <ServiceKanban
               records={filtered}
@@ -391,13 +500,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         recordId={editRecord?.id ?? null}
       />
 
-      <ServiceAuditModal
-        open={auditOpen}
-        onOpenChange={setAuditOpen}
-        recordId={auditRecord?.id ?? null}
-        title={auditRecord ? `Histórico — ${auditRecord.client_name}` : "Histórico"}
-      />
-
       <ServiceRecordDetailsSheet
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
@@ -406,11 +508,11 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         onEdit={(r) => {
           setDetailsOpen(false);
           openEdit(r);
-      }}
+        }}
         onAskDelete={(id) => {
           setDetailsOpen(false);
           setDeleteId(id);
-      }}
+        }}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
