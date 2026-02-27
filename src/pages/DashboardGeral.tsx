@@ -85,6 +85,7 @@ export default function DashboardGeral() {
 
   const [records, setRecords] = useState<RecordWithService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
 
   // filtros
   const [filterService, setFilterService] = useState<string>("ALL");
@@ -238,7 +239,16 @@ export default function DashboardGeral() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <AppHeader title="Dashboard (Geral)" subtitle="3 gráficos essenciais + lista" onMenuClick={onMenuClick} />
+      <AppHeader
+        title="Dashboard (Geral)"
+        subtitle="3 gráficos essenciais + lista"
+        onMenuClick={onMenuClick}
+        actions={
+          <div className="text-xs text-muted-foreground whitespace-nowrap">
+            Atualizado em: {lastAuditAt ? new Date(lastAuditAt).toLocaleDateString("pt-BR") : "—"}
+          </div>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
         {loading ? (

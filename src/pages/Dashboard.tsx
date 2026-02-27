@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG } from "@/types";
+import { useLastUpdate } from "@/pages/dashboard/hooks/useLastUpdate";
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { seedData } from "@/lib/seed";
@@ -42,6 +43,9 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+
+  const { data: lastUpdate } = useLastUpdate();
+
   const fetchData = async () => {
     setLoading(true);
     const [{ data: recs }, { data: svcs }] = await Promise.all([
@@ -122,9 +126,6 @@ export default function DashboardPage() {
 
   const recentRecords = filtered.slice(0, 8);
 
-  // Última atualização (somente data) — baseado no registro mais recente
-  const lastUpdateDate = records.length > 0 ? ((records[0] as any).updated_at || (records[0] as any).created_at) : null;
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <AppHeader
@@ -142,10 +143,14 @@ export default function DashboardPage() {
           ) : null
         }
       />
-<div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-        <div className="text-xs text-muted-foreground mb-4">Atualizado em: {lastUpdateDate ? new Date(lastUpdateDate).toLocaleDateString("pt-BR") : "—"}</div>
+
+      <div className="text-xs text-red-500">
+        DEBUG lastUpdate: {String(lastUpdate)}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
         <div className="text-xs text-muted-foreground -mt-2">
-          
+          Atualizado em: {lastUpdate ? new Date(lastUpdate).toLocaleString("pt-BR") : "—"}
         </div>
 
         {loading ? (
