@@ -43,8 +43,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
 
-  const { data: lastUpdate } = useLastUpdate();
-
   const fetchData = async () => {
     setLoading(true);
     const [{ data: recs }, { data: svcs }] = await Promise.all([
@@ -125,6 +123,11 @@ export default function DashboardPage() {
 
   const recentRecords = filtered.slice(0, 8);
 
+  const lastUpdateDate =
+  records.length > 0
+    ? (records[0] as any).updated_at || (records[0] as any).created_at
+    : null;
+
   // Última atualização (somente DATA)
   const lastUpdate =
     records.length > 0
@@ -154,8 +157,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-        <div className="text-xs text-muted-foreground -mt-2">
-          Atualizado em: {lastUpdate ? new Date(lastUpdate).toLocaleString("pt-BR") : "—"}
+        <div className="text-xs text-muted-foreground mb-4">
+          Atualizado em: {lastUpdateDate ? new Date(lastUpdateDate).toLocaleDateString("pt-BR") : "—"}
+        </div>
+
+        <div style={{ background: "#111", color: "#fff", padding: 8 }}>
+             TESTE ATUALIZADO
         </div>
 
         {loading ? (
