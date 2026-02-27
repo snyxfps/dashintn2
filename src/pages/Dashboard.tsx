@@ -144,6 +144,10 @@ export default function DashboardPage() {
         }
       />
 
+      <div className="text-xs text-red-500">
+        DEBUG lastUpdate: {String(lastUpdate)}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
         <div className="text-xs text-muted-foreground -mt-2">
           Atualizado em: {lastUpdate ? new Date(lastUpdate).toLocaleString("pt-BR") : "—"}
