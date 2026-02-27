@@ -122,7 +122,22 @@ export default function DashboardGeral() {
       service_name: serviceMap.get(String(r.service_id)) || "—",
     }));
 
-    setRecords(enriched);
+    
+
+    // última atualização via auditoria
+    const { data: auditData, error: auditErr } = await supabase
+      .from("record_audit_logs")
+      .select("created_at")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (auditErr) {
+      console.error(auditErr);
+      setLastAuditAt(null);
+    } else {
+      setLastAuditAt((auditData as any)?.[0]?.created_at ?? null);
+    }
+setRecords(enriched);
     setLoading(false);
   };
 
@@ -239,16 +254,7 @@ export default function DashboardGeral() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <AppHeader
-        title="Dashboard (Geral)"
-        subtitle="3 gráficos essenciais + lista"
-        onMenuClick={onMenuClick}
-        actions={
-          <div className="text-xs text-muted-foreground whitespace-nowrap">
-            Atualizado em: {lastAuditAt ? new Date(lastAuditAt).toLocaleDateString("pt-BR") : "—"}
-          </div>
-        }
-      />
+      <AppHeader title="Dashboard (Geral)" subtitle="3 gráficos essenciais + lista" onMenuClick={onMenuClick} />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
         {loading ? (
