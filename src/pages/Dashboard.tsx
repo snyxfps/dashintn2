@@ -42,7 +42,6 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
-
   const fetchData = async () => {
     setLoading(true);
     const [{ data: recs }, { data: svcs }] = await Promise.all([
@@ -123,16 +122,8 @@ export default function DashboardPage() {
 
   const recentRecords = filtered.slice(0, 8);
 
-  const lastUpdateDate =
-  records.length > 0
-    ? (records[0] as any).updated_at || (records[0] as any).created_at
-    : null;
-
-  // Última atualização (somente DATA)
-  const lastUpdate =
-    records.length > 0
-      ? records[0].updated_at || records[0].created_at
-      : null;
+  // Última atualização (somente data) — baseado no registro mais recente
+  const lastUpdateDate = records.length > 0 ? ((records[0] as any).updated_at || (records[0] as any).created_at) : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -151,18 +142,10 @@ export default function DashboardPage() {
           ) : null
         }
       />
-
-      <div className="text-xs text-red-500">
-        DEBUG lastUpdate: {String(lastUpdate)}
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-        <div className="text-xs text-muted-foreground mb-4">
-          Atualizado em: {lastUpdateDate ? new Date(lastUpdateDate).toLocaleDateString("pt-BR") : "—"}
-        </div>
-
-        <div style={{ background: "#111", color: "#fff", padding: 8 }}>
-             TESTE ATUALIZADO
+<div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+        <div className="text-xs text-muted-foreground mb-4">Atualizado em: {lastUpdateDate ? new Date(lastUpdateDate).toLocaleDateString("pt-BR") : "—"}</div>
+        <div className="text-xs text-muted-foreground -mt-2">
+          
         </div>
 
         {loading ? (
