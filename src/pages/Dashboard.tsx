@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG } from "@/types";
-import { useLastUpdate } from "@/pages/dashboard/hooks/useLastUpdate";
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { seedData } from "@/lib/seed";
@@ -125,6 +124,12 @@ export default function DashboardPage() {
   ];
 
   const recentRecords = filtered.slice(0, 8);
+
+  // Última atualização (somente DATA)
+  const lastUpdate =
+    records.length > 0
+      ? records[0].updated_at || records[0].created_at
+      : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
