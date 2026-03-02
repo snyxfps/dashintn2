@@ -30,6 +30,24 @@ import { ServiceFilters } from "@/pages/service/components/ServiceFilters";
 import { ServiceFormModal, type ServiceFormState } from "@/pages/service/components/ServiceFormModal";
 import { ServiceExportButton } from "@/pages/service/components/ServiceExportButton";
 
+function toastDbError(err: unknown, fallback = "Ação não permitida. Verifique as regras do status.") {
+  const anyErr: any = err;
+  const code = anyErr?.code || anyErr?.error?.code;
+  const message = anyErr?.message || anyErr?.error?.message;
+
+  if (code === "23514") {
+    toast.error(String(message || "Ação não permitida pelas regras do sistema."));
+    return;
+  }
+
+  if (code === "42501") {
+    toast.error("Você não tem permissão para fazer essa ação.");
+    return;
+  }
+
+  toast.error(fallback);
+}
+
 interface OutletContext {
   onMenuClick: () => void;
 }
@@ -205,8 +223,8 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     try {
       await createService.mutateAsync();
       toast.success("Serviço criado!");
-    } catch (e: unknown) {
-      toast.error("Erro ao criar serviço: " + (e instanceof Error ? e.message : "Tente novamente"));
+    } catch (err) {
+      toastDbError(err, "Não foi possível criar o serviço agora. Tente novamente.");
     }
   };
 
@@ -329,8 +347,8 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             });
 
             toast.success(`Registro movido para ${STATUS_CONFIG[to].label} com sucesso!`);
-          } catch {
-            toast.error("Ação não permitida. Verifique as regras do status.");
+          } catch (err) {
+            toastDbError(err);
           } finally {
             setPendingMove(null);
           }
@@ -388,8 +406,8 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
       await deleteRecord.mutateAsync(deleteId);
       toast.success("Registro excluído!");
-    } catch {
-      toast.error("Ação não permitida. Verifique suas permissões.");
+    } catch (err) {
+      toastDbError(err, "Não foi possível excluir. Verifique permissões e tente novamente.");
     } finally {
       setDeleteId(null);
     }
@@ -453,8 +471,8 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       });
 
       toast.success(`Registro movido para ${STATUS_CONFIG[newStatus].label} com sucesso!`);
-    } catch {
-      toast.error("Ação não permitida. Verifique as regras do status.");
+    } catch (err) {
+      toastDbError(err);
     }
   };
 
