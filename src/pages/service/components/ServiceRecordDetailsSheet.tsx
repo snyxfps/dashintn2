@@ -30,9 +30,11 @@ export function ServiceRecordDetailsSheet({
   onAskDelete: (id: string) => void;
 }) {
   const isReuniao = record?.status === "REUNIAO";
-  const isFinalizadoOuCancelado = record?.status === "FINALIZADO" || record?.status === "CANCELADO";
+  const isFinalizadoOuCancelado =
+    record?.status === "FINALIZADO" || record?.status === "CANCELADO";
   const isDevolvido = record?.status === "DEVOLVIDO";
   const isNovo = record?.status === "NOVO";
+  const isAndamento = record?.status === "ANDAMENTO";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -46,62 +48,72 @@ export function ServiceRecordDetailsSheet({
 
         {record ? (
           <div className="mt-5 space-y-6">
-            {/* Ações (só admin) */}
-            {isAdmin ? (
+            {/* Ações (admin) */}
+            {isAdmin && (
               <div className="flex gap-2">
-                <Button variant="default" onClick={() => onEdit(record)}>
-                  Editar
-                </Button>
+                <Button onClick={() => onEdit(record)}>Editar</Button>
                 <Button variant="destructive" onClick={() => onAskDelete(record.id)}>
                   Excluir
                 </Button>
               </div>
-            ) : null}
+            )}
 
-            {/* Resumo (não mostra em REUNIÃO pra não ficar bloco vazio) */}
-            {!isReuniao ? (
-              <div className="rounded-xl border p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Responsável" value={record.owner} />
-                  <Field label="Data de início" value={record.start_date} />
-                  <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
-                  <Field label="Tipo de Integração" value={record.integration_type} />
-                </div>
-              </div>
-            ) : null}
-
-            {/* Datas de processo */}
+            {/* ===== RESUMO ===== */}
             <div className="rounded-xl border p-4 space-y-3">
-              <div className="text-sm font-semibold">{isReuniao ? "Data" : "Data"}</div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Em REUNIÃO: mostrar somente a reunião */}
-                {isReuniao ? (
-                  <Field label="Reunião" value={record.meeting_datetime} />
-                ) : (
+                <Field label="Responsável" value={record.owner} />
+
+                {/* ANDAMENTO e demais mostram Data de início */}
+                {!isReuniao && (
+                  <Field label="Data de início" value={record.start_date} />
+                )}
+
+                {/* Só mostra esses campos se existirem */}
+                {!isAndamento && (
                   <>
-                    {/* Cadastro só faz sentido em NOVO */}
-                    {isNovo ? <Field label="Cadastro" value={record.cadastro_date} /> : null}
-
-                    {/* Se existir, pode mostrar reunião mesmo fora do status REUNIÃO */}
-                    <Field label="Reunião" value={record.meeting_datetime} />
-
-                    {/* Conclusão só em FINALIZADO/CANCELADO */}
-                    {isFinalizadoOuCancelado ? <Field label="Conclusão" value={record.end_date} /> : null}
-
-                    {/* Devolução + Comercial só em DEVOLVIDO */}
-                    {isDevolvido ? (
-                      <>
-                        <Field label="Devolução" value={record.devolucao_date} />
-                        <Field label="Comercial" value={record.commercial} />
-                      </>
-                    ) : null}
+                    <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
+                    <Field label="Tipo de Integração" value={record.integration_type} />
                   </>
                 )}
               </div>
             </div>
 
-            {/* Observações */}
+            {/* ===== BLOCO DATAS ===== */}
+            {/* ANDAMENTO NÃO deve mostrar esse bloco */}
+            {!isAndamento && (
+              <div className="rounded-xl border p-4 space-y-3">
+                <div className="text-sm font-semibold">
+                  {isReuniao ? "Data" : "Datas"}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {isReuniao ? (
+                    <Field label="Reunião" value={record.meeting_datetime} />
+                  ) : (
+                    <>
+                      {isNovo && (
+                        <Field label="Cadastro" value={record.cadastro_date} />
+                      )}
+
+                      <Field label="Reunião" value={record.meeting_datetime} />
+
+                      {isFinalizadoOuCancelado && (
+                        <Field label="Conclusão" value={record.end_date} />
+                      )}
+
+                      {isDevolvido && (
+                        <>
+                          <Field label="Devolução" value={record.devolucao_date} />
+                          <Field label="Comercial" value={record.commercial} />
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ===== OBSERVAÇÕES ===== */}
             <div className="rounded-xl border p-4 space-y-2">
               <div className="text-sm font-semibold">Observações</div>
               <div className="text-sm whitespace-pre-wrap text-muted-foreground">
@@ -110,7 +122,9 @@ export function ServiceRecordDetailsSheet({
             </div>
           </div>
         ) : (
-          <div className="mt-6 text-sm text-muted-foreground">Selecione um card para ver os detalhes.</div>
+          <div className="mt-6 text-sm text-muted-foreground">
+            Selecione um card para ver os detalhes.
+          </div>
         )}
       </SheetContent>
     </Sheet>
