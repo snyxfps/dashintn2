@@ -72,7 +72,7 @@ export function ServiceRecordDetailsSheet({
 
             {/* Datas de processo */}
             <div className="rounded-xl border p-4 space-y-3">
-              <div className="text-sm font-semibold">{isReuniao ? "Data" : "Datas"}</div>
+              <div className="text-sm font-semibold">{isReuniao ? "Data" : "Data"}</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Em REUNIÃO: mostrar somente a reunião */}
