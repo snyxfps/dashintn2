@@ -58,23 +58,21 @@ export function ServiceRecordDetailsSheet({
               </div>
             ) : null}
 
-            {/* Resumo */}
-            <div className="rounded-xl border p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Responsável" value={record.owner} />
-
-                {/* Reunião operacional NÃO precisa mostrar Data de início */}
-                {!isReuniao ? <Field label="Data de início" value={record.start_date} /> : null}
-
-                {/* Campos adicionais (mantém como estava) */}
-                <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
-                <Field label="Tipo de Integração" value={record.integration_type} />
+            {/* Resumo (não mostra em REUNIÃO pra não ficar bloco vazio) */}
+            {!isReuniao ? (
+              <div className="rounded-xl border p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Responsável" value={record.owner} />
+                  <Field label="Data de início" value={record.start_date} />
+                  <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
+                  <Field label="Tipo de Integração" value={record.integration_type} />
+                </div>
               </div>
-            </div>
+            ) : null}
 
             {/* Datas de processo */}
             <div className="rounded-xl border p-4 space-y-3">
-              <div className="text-sm font-semibold">Datas</div>
+              <div className="text-sm font-semibold">{isReuniao ? "Data" : "Datas"}</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Em REUNIÃO: mostrar somente a reunião */}
@@ -82,10 +80,10 @@ export function ServiceRecordDetailsSheet({
                   <Field label="Reunião" value={record.meeting_datetime} />
                 ) : (
                   <>
-                    {/* Cadastro só faz sentido em NOVO (ou se você quiser manter em outros, mas aqui ficou correto) */}
+                    {/* Cadastro só faz sentido em NOVO */}
                     {isNovo ? <Field label="Cadastro" value={record.cadastro_date} /> : null}
 
-                    {/* Reunião pode aparecer fora do status REUNIÃO se existir (opcional) */}
+                    {/* Se existir, pode mostrar reunião mesmo fora do status REUNIÃO */}
                     <Field label="Reunião" value={record.meeting_datetime} />
 
                     {/* Conclusão só em FINALIZADO/CANCELADO */}
