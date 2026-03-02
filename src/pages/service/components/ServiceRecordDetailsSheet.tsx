@@ -30,8 +30,7 @@ export function ServiceRecordDetailsSheet({
   onAskDelete: (id: string) => void;
 }) {
   const isReuniao = record?.status === "REUNIAO";
-  const isFinalizadoOuCancelado =
-    record?.status === "FINALIZADO" || record?.status === "CANCELADO";
+  const isFinalizadoOuCancelado = record?.status === "FINALIZADO" || record?.status === "CANCELADO";
   const isDevolvido = record?.status === "DEVOLVIDO";
   const isNovo = record?.status === "NOVO";
   const isAndamento = record?.status === "ANDAMENTO";
@@ -49,69 +48,70 @@ export function ServiceRecordDetailsSheet({
         {record ? (
           <div className="mt-5 space-y-6">
             {/* Ações (admin) */}
-            {isAdmin && (
+            {isAdmin ? (
               <div className="flex gap-2">
                 <Button onClick={() => onEdit(record)}>Editar</Button>
                 <Button variant="destructive" onClick={() => onAskDelete(record.id)}>
                   Excluir
                 </Button>
               </div>
-            )}
+            ) : null}
 
             {/* ===== RESUMO ===== */}
-            <div className="rounded-xl border p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Responsável" value={record.owner} />
+            {/* REUNIÃO: remove o bloco de cima pra não ficar em branco */}
+            {!isReuniao ? (
+              <div className="rounded-xl border p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Responsável" value={record.owner} />
 
-                {/* ANDAMENTO e demais mostram Data de início */}
-                {!isReuniao && (
-                  <Field label="Data de início" value={record.start_date} />
-                )}
+                  {/* NOVO: NÃO mostrar data de início (redundante) */}
+                  {/* ANDAMENTO e demais: mostrar data de início */}
+                  {!isNovo ? <Field label="Data de início" value={record.start_date} /> : null}
 
-                {/* Só mostra esses campos se existirem */}
-                {!isAndamento && (
-                  <>
-                    <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
-                    <Field label="Tipo de Integração" value={record.integration_type} />
-                  </>
-                )}
+                  {/* Em ANDAMENTO você pediu para ficar “clean”: só responsável + data início + observações */}
+                  {!isAndamento ? (
+                    <>
+                      <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
+                      <Field label="Tipo de Integração" value={record.integration_type} />
+                    </>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            ) : null}
 
             {/* ===== BLOCO DATAS ===== */}
-            {/* ANDAMENTO NÃO deve mostrar esse bloco */}
-            {!isAndamento && (
+            {/* ANDAMENTO: não mostrar o bloco Datas */}
+            {!isAndamento ? (
               <div className="rounded-xl border p-4 space-y-3">
-                <div className="text-sm font-semibold">
-                  {isReuniao ? "Data" : "Datas"}
-                </div>
+                <div className="text-sm font-semibold">{isReuniao ? "Data" : "Datas"}</div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* REUNIÃO: só reunião */}
                   {isReuniao ? (
                     <Field label="Reunião" value={record.meeting_datetime} />
                   ) : (
                     <>
-                      {isNovo && (
-                        <Field label="Cadastro" value={record.cadastro_date} />
-                      )}
+                      {/* NOVO: só Cadastro (sem redundância) */}
+                      {isNovo ? <Field label="Cadastro" value={record.cadastro_date} /> : null}
 
-                      <Field label="Reunião" value={record.meeting_datetime} />
+                      {/* Reunião pode existir em outros status também */}
+                      {!isNovo ? <Field label="Reunião" value={record.meeting_datetime} /> : null}
 
-                      {isFinalizadoOuCancelado && (
-                        <Field label="Conclusão" value={record.end_date} />
-                      )}
+                      {/* Conclusão só em FINALIZADO/CANCELADO */}
+                      {isFinalizadoOuCancelado ? <Field label="Conclusão" value={record.end_date} /> : null}
 
-                      {isDevolvido && (
+                      {/* Devolução + Comercial só em DEVOLVIDO */}
+                      {isDevolvido ? (
                         <>
                           <Field label="Devolução" value={record.devolucao_date} />
                           <Field label="Comercial" value={record.commercial} />
                         </>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* ===== OBSERVAÇÕES ===== */}
             <div className="rounded-xl border p-4 space-y-2">
@@ -122,9 +122,7 @@ export function ServiceRecordDetailsSheet({
             </div>
           </div>
         ) : (
-          <div className="mt-6 text-sm text-muted-foreground">
-            Selecione um card para ver os detalhes.
-          </div>
+          <div className="mt-6 text-sm text-muted-foreground">Selecione um card para ver os detalhes.</div>
         )}
       </SheetContent>
     </Sheet>
