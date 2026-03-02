@@ -29,6 +29,11 @@ export function ServiceRecordDetailsSheet({
   onEdit: (r: ServiceRecord) => void;
   onAskDelete: (id: string) => void;
 }) {
+  const isReuniao = record?.status === "REUNIAO";
+  const isFinalizadoOuCancelado = record?.status === "FINALIZADO" || record?.status === "CANCELADO";
+  const isDevolvido = record?.status === "DEVOLVIDO";
+  const isNovo = record?.status === "NOVO";
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
@@ -57,7 +62,11 @@ export function ServiceRecordDetailsSheet({
             <div className="rounded-xl border p-4 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Responsável" value={record.owner} />
-                <Field label="Data de início" value={record.start_date} />
+
+                {/* Reunião operacional NÃO precisa mostrar Data de início */}
+                {!isReuniao ? <Field label="Data de início" value={record.start_date} /> : null}
+
+                {/* Campos adicionais (mantém como estava) */}
                 <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
                 <Field label="Tipo de Integração" value={record.integration_type} />
               </div>
@@ -66,12 +75,31 @@ export function ServiceRecordDetailsSheet({
             {/* Datas de processo */}
             <div className="rounded-xl border p-4 space-y-3">
               <div className="text-sm font-semibold">Datas</div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Cadastro" value={record.cadastro_date} />
-                <Field label="Reunião" value={record.meeting_datetime} />
-                <Field label="Conclusão" value={record.end_date} />
-                <Field label="Devolução" value={record.devolucao_date} />
-                <Field label="Comercial" value={record.commercial} />
+                {/* Em REUNIÃO: mostrar somente a reunião */}
+                {isReuniao ? (
+                  <Field label="Reunião" value={record.meeting_datetime} />
+                ) : (
+                  <>
+                    {/* Cadastro só faz sentido em NOVO (ou se você quiser manter em outros, mas aqui ficou correto) */}
+                    {isNovo ? <Field label="Cadastro" value={record.cadastro_date} /> : null}
+
+                    {/* Reunião pode aparecer fora do status REUNIÃO se existir (opcional) */}
+                    <Field label="Reunião" value={record.meeting_datetime} />
+
+                    {/* Conclusão só em FINALIZADO/CANCELADO */}
+                    {isFinalizadoOuCancelado ? <Field label="Conclusão" value={record.end_date} /> : null}
+
+                    {/* Devolução + Comercial só em DEVOLVIDO */}
+                    {isDevolvido ? (
+                      <>
+                        <Field label="Devolução" value={record.devolucao_date} />
+                        <Field label="Comercial" value={record.commercial} />
+                      </>
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
 
