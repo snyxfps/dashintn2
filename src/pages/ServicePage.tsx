@@ -122,7 +122,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const [editRecord, setEditRecord] = useState<ServiceRecord | null>(null);
   const [form, setForm] = useState<ServiceFormState>(() => makeEmptyForm(serviceName));
   const [saving, setSaving] = useState(false);
-  const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus } | null>(null);
+
+  // ✅ pending move (após preencher e salvar)
+  const [pendingMove, setPendingMove] = useState<{ id: string; to: RecordStatus; from: RecordStatus } | null>(null);
 
   // Details (Sheet)
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -238,7 +240,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       };
 
       if (editRecord) {
-        // ===== UPDATE / STATUS_CHANGE via modal =====
         const old = {
           client_name: (editRecord.client_name ?? "").trim() || null,
           start_date: (editRecord.start_date ?? "").trim() || null,
@@ -256,7 +257,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
         await updateRecord.mutateAsync({ id: editRecord.id, patch: payloadBase as any });
 
-        // UPDATE geral (sempre que salva)
+        // UPDATE geral
         void writeAuditLog({
           recordId: editRecord.id,
           userId: user?.id ?? null,
@@ -266,7 +267,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           newValue: `status=${base.status}`,
         });
 
-        // STATUS_CHANGE específico (se mudou status)
+        // STATUS_CHANGE específico (se mudou status no modal)
         if (old.status !== base.status) {
           void writeAuditLog({
             recordId: editRecord.id,
@@ -278,7 +279,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           });
         }
 
-        // (Opcional) detalhar mudanças mais importantes sem floodar:
         const maybeLogField = (field: keyof typeof old, label: string) => {
           const ov = old[field];
           const nv = (base as any)[field];
@@ -294,7 +294,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           }
         };
 
-        // Campos que vale a pena rastrear
         maybeLogField("owner", "owner");
         maybeLogField("integration_type", "integration_type");
         maybeLogField("agidesk_ticket", "agidesk_ticket");
@@ -303,11 +302,33 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         maybeLogField("commercial", "commercial");
 
         toast.success("Registro atualizado!");
+
+        // ✅ Se havia pendingMove, efetiva AGORA (depois do usuário preencher e salvar)
+        if (pendingMove && pendingMove.id === editRecord.id) {
+          const { id, to, from } = pendingMove;
+
+          try {
+            await moveStatus.mutateAsync({ id, status: to });
+
+            void writeAuditLog({
+              recordId: id,
+              userId: user?.id ?? null,
+              action: "STATUS_CHANGE",
+              fieldName: "status",
+              oldValue: from,
+              newValue: to,
+            });
+
+            toast.success(`Registro movido para ${STATUS_CONFIG[to].label} com sucesso!`);
+          } catch {
+            toast.error("Erro ao atualizar status");
+          } finally {
+            setPendingMove(null);
+          }
+        }
       } else {
-        // ===== CREATE =====
         const created = await createRecord.mutateAsync(payloadBase as any);
 
-        // tenta descobrir o id criado (depende de como sua mutation retorna)
         const createdId =
           (created && typeof created === "object" && "id" in created && (created as any).id) ||
           (Array.isArray(created) && created[0]?.id) ||
@@ -323,15 +344,12 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             newValue: `status=${base.status}`,
           });
         } else {
-          // Se sua mutation não retorna id, não tem recordId pra logar.
-          // Você pode optar por remover este bloco, mas deixei pra não “sumir” o evento.
           console.warn("CREATE audit: createRecord não retornou id. Ajuste a mutation para retornar o registro criado.");
         }
 
         toast.success("Registro criado!");
       }
 
-      if (pendingMove) setPendingMove(null);
       setDialogOpen(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Tente novamente";
@@ -348,12 +366,10 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
   const handleDelete = async () => {
     if (!deleteId) return;
 
-    // captura info antes de deletar (pra auditoria ficar útil)
     const rec = records.find((r) => r.id === deleteId);
     const snapshot = rec ? `${rec.client_name} | status=${rec.status}` : `id=${deleteId}`;
 
     try {
-      // audita ANTES (se existir FK cascade na auditoria, auditar depois pode perder o log)
       void writeAuditLog({
         recordId: deleteId,
         userId: user?.id ?? null,
@@ -386,18 +402,24 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     const oldStatus = current.status;
     const newStatus = status;
 
+    // ✅ validação: se faltar dado obrigatório, obriga modal + pendingMove
     const missing = missingFieldsForStatus(current, newStatus);
     if (missing.length > 0) {
       toast.message(`Para mover para "${STATUS_CONFIG[newStatus].label}", preencha: ${missing.join(", ")}`);
+
       openEdit(current);
+
       setForm((f) => ({
         ...f,
         status: newStatus,
         end_date:
-          newStatus === "FINALIZADO" || newStatus === "CANCELADO" ? f.end_date || todayDateOnlyLocal() : f.end_date,
+          newStatus === "FINALIZADO" || newStatus === "CANCELADO"
+            ? f.end_date || todayDateOnlyLocal()
+            : f.end_date,
         devolucao_date: newStatus === "DEVOLVIDO" ? f.devolucao_date || todayDateOnlyLocal() : f.devolucao_date,
       }));
-      setPendingMove({ id, to: newStatus });
+
+      setPendingMove({ id, to: newStatus, from: oldStatus });
       return;
     }
 
