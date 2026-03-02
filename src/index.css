@@ -127,7 +127,7 @@
 
   /* Card with corporate shadow */
   .corp-card {
-  @apply rounded-[var(--radius)] border border-border/70 bg-card shadow-[var(--shadow-card)];
+  @apply rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm;
 }
 
   .corp-card-elevated {

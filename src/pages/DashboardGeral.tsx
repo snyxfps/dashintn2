@@ -253,7 +253,7 @@ setRecords(enriched);
   }, [filtered, today]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-muted/30 to-background">
       <AppHeader
         title="Dashboard (Geral)"
         subtitle="3 gráficos essenciais + lista"

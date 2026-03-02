@@ -127,7 +127,7 @@ export default function DashboardPage() {
   const recentRecords = filtered.slice(0, 8);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-muted/30 to-background">
       <AppHeader
         title="Dashboard"
         subtitle="Visão geral de todas as integrações"
