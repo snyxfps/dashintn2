@@ -197,14 +197,6 @@ export function ServiceFormModal({
               className="resize-none"
             />
           </div>
-
-          {/* Auditoria visível no modal (apenas quando editando um registro existente) */}
-          {recordId ? (
-            <div className="pt-2">
-              <div className="mb-2 text-sm font-semibold">Histórico</div>
-              <ServiceAuditLog recordId={recordId} />
-            </div>
-          ) : null}
         </div>
 
         <DialogFooter>
