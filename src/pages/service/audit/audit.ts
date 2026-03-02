@@ -11,28 +11,46 @@ interface WriteAuditParams {
   newValue?: unknown;
 }
 
-/**
- * Auditoria agora é feita 100% no BACKEND via TRIGGER (records -> record_audit_logs).
- * Por segurança (RLS), o client NÃO tem permissão de INSERT na tabela de logs.
- *
- * Mantemos esta função como "noop" para não quebrar imports/calls existentes.
- */
-export async function writeAuditLog(_params: WriteAuditParams): Promise<void> {
-  // NO-OP: logs são gravados no banco via trigger
-  return;
+type AuditInsertRow = {
+  record_id: string;
+  user_id: string | null;
+  action: AuditAction;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+};
+
+function toNullableString(v: unknown): string | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s.length ? s : null;
 }
 
-/**
- * (Opcional) helper para debug: checar se o usuário consegue ler logs.
- * Você pode remover se não usar.
- */
-export async function canReadAuditLogs(): Promise<boolean> {
+export async function writeAuditLog(params: WriteAuditParams): Promise<void> {
   try {
-    const sb: any = supabase;
-    const { data, error } = await sb.from("record_audit_logs").select("id").limit(1);
-    if (error) return false;
-    return Array.isArray(data);
-  } catch {
-    return false;
+    const payload: AuditInsertRow = {
+      record_id: params.recordId,
+      user_id: params.userId ?? null,
+      action: params.action,
+      field_name: params.fieldName ?? null,
+      old_value: toNullableString(params.oldValue),
+      new_value: toNullableString(params.newValue),
+    };
+
+    // ✅ sem any: tipa o mínimo necessário do client via unknown
+    const sb = supabase as unknown as {
+      from: (table: string) => {
+        insert: (values: AuditInsertRow) => Promise<{ error: { message?: string; code?: string } | null }>;
+      };
+    };
+
+    const { error } = await sb.from("record_audit_logs").insert(payload);
+
+    if (error) {
+      console.error("Audit log insert error:", error);
+    }
+  } catch (err) {
+    // Auditoria NUNCA pode quebrar o app
+    console.error("Unexpected audit error:", err);
   }
 }
