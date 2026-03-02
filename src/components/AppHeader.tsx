@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Menu, Search, Bell } from 'lucide-react';
+import React from 'react';
+import { Menu, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/AuthContext';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AppHeaderProps {
   title: string;
@@ -45,6 +45,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           />
         </div>
       )}
+
+      <ThemeToggle />
 
       {/* Actions */}
       {actions && <div className="flex items-center gap-2">{actions}</div>}
