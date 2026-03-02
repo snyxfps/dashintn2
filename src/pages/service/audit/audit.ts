@@ -11,23 +11,28 @@ interface WriteAuditParams {
   newValue?: unknown;
 }
 
-export async function writeAuditLog(params: WriteAuditParams): Promise<void> {
+/**
+ * Auditoria agora é feita 100% no BACKEND via TRIGGER (records -> record_audit_logs).
+ * Por segurança (RLS), o client NÃO tem permissão de INSERT na tabela de logs.
+ *
+ * Mantemos esta função como "noop" para não quebrar imports/calls existentes.
+ */
+export async function writeAuditLog(_params: WriteAuditParams): Promise<void> {
+  // NO-OP: logs são gravados no banco via trigger
+  return;
+}
+
+/**
+ * (Opcional) helper para debug: checar se o usuário consegue ler logs.
+ * Você pode remover se não usar.
+ */
+export async function canReadAuditLogs(): Promise<boolean> {
   try {
-    // Cast do client e do nome da tabela para escapar do typing desatualizado do Supabase
     const sb: any = supabase;
-
-    const { error } = await sb.from("record_audit_logs").insert({
-      record_id: params.recordId,
-      user_id: params.userId ?? null,
-      action: params.action,
-      field_name: params.fieldName ?? null,
-      old_value: params.oldValue != null ? String(params.oldValue) : null,
-      new_value: params.newValue != null ? String(params.newValue) : null,
-    });
-
-    if (error) console.error("Audit log insert error:", error);
-  } catch (err) {
-    // Auditoria NUNCA pode quebrar o app
-    console.error("Unexpected audit error:", err);
+    const { data, error } = await sb.from("record_audit_logs").select("id").limit(1);
+    if (error) return false;
+    return Array.isArray(data);
+  } catch {
+    return false;
   }
 }
