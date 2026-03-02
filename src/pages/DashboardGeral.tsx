@@ -81,11 +81,18 @@ const getEventDateForStatus = (r: ServiceRecord): Date | null => {
 };
 
 export default function DashboardGeral() {
+  const markAuditSeen = (value: string | null) => {
+    try {
+      if (value) localStorage.setItem('lastAuditSeen', value);
+    } catch {}
+    setHasNewAudit(false);
+  };
   const { onMenuClick } = useOutletContext<OutletContext>();
 
   const [records, setRecords] = useState<RecordWithService[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
+  const [hasNewAudit, setHasNewAudit] = useState(false);
 
   // filtros
   const [filterService, setFilterService] = useState<string>("ALL");
@@ -448,7 +455,7 @@ setRecords(enriched);
             </div>
 
             {/* lista */}
-            <div className="corp-card overflow-hidden">
+            <div className="corp-card overflow-hidden anim-fade-up">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
                 <div className="text-xs text-muted-foreground">Mostrando os últimos registros do filtro.</div>
