@@ -37,6 +37,8 @@ interface ServicePageProps {
   serviceName: string;
 }
 
+const FIXED_STATUSES: RecordStatus[] = ["NOVO", "REUNIAO"];
+
 const makeEmptyForm = (serviceName: string): ServiceFormState => ({
   client_name: "",
   start_date: todayDateOnlyLocal(),
@@ -212,6 +214,14 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     if (!isAdmin) return;
     if (!service?.id) return;
 
+    // ✅ Se o usuário tentou mudar para/desde status fixo, bloqueia com mensagem amigável
+    if (editRecord && editRecord.status !== form.status) {
+      if (FIXED_STATUSES.includes(editRecord.status) || FIXED_STATUSES.includes(form.status)) {
+        toast.error('Transição não permitida: "Novos Clientes" e "Reuniões" são status fixos.');
+        return;
+      }
+    }
+
     // ✅ validação também no modal (evita “burlar” regra pelo Save)
     const missing = missingFieldsForStatus(form as any, form.status);
     if (missing.length > 0) {
@@ -257,7 +267,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
         await updateRecord.mutateAsync({ id: editRecord.id, patch: payloadBase as any });
 
-        // UPDATE geral
+        // (Front audit virou NO-OP, mas manter não quebra)
         void writeAuditLog({
           recordId: editRecord.id,
           userId: user?.id ?? null,
@@ -267,7 +277,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
           newValue: `status=${base.status}`,
         });
 
-        // STATUS_CHANGE específico (se mudou status no modal)
         if (old.status !== base.status) {
           void writeAuditLog({
             recordId: editRecord.id,
@@ -303,7 +312,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
         toast.success("Registro atualizado!");
 
-        // ✅ Se havia pendingMove, efetiva AGORA (depois do usuário preencher e salvar)
+        // ✅ Se havia pendingMove, efetiva agora (após preencher e salvar)
         if (pendingMove && pendingMove.id === editRecord.id) {
           const { id, to, from } = pendingMove;
 
@@ -321,7 +330,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
             toast.success(`Registro movido para ${STATUS_CONFIG[to].label} com sucesso!`);
           } catch {
-            toast.error("Erro ao atualizar status");
+            toast.error("Ação não permitida. Verifique as regras do status.");
           } finally {
             setPendingMove(null);
           }
@@ -343,8 +352,6 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             oldValue: null,
             newValue: `status=${base.status}`,
           });
-        } else {
-          console.warn("CREATE audit: createRecord não retornou id. Ajuste a mutation para retornar o registro criado.");
         }
 
         toast.success("Registro criado!");
@@ -382,7 +389,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
       await deleteRecord.mutateAsync(deleteId);
       toast.success("Registro excluído!");
     } catch {
-      toast.error("Erro ao excluir");
+      toast.error("Ação não permitida. Verifique suas permissões.");
     } finally {
       setDeleteId(null);
     }
@@ -401,6 +408,16 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
     const oldStatus = current.status;
     const newStatus = status;
+
+    // ✅ REGRA AMIGÁVEL: NOVO/REUNIÃO são fixos (não saem e ninguém entra)
+    if (FIXED_STATUSES.includes(oldStatus)) {
+      toast.error(`"${STATUS_CONFIG[oldStatus].label}" é um status fixo e não pode ser alterado.`);
+      return;
+    }
+    if (FIXED_STATUSES.includes(newStatus)) {
+      toast.error(`Não é permitido mover para "${STATUS_CONFIG[newStatus].label}".`);
+      return;
+    }
 
     // ✅ validação: se faltar dado obrigatório, obriga modal + pendingMove
     const missing = missingFieldsForStatus(current, newStatus);
@@ -437,7 +454,7 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
 
       toast.success(`Registro movido para ${STATUS_CONFIG[newStatus].label} com sucesso!`);
     } catch {
-      toast.error("Erro ao atualizar status");
+      toast.error("Ação não permitida. Verifique as regras do status.");
     }
   };
 
@@ -454,7 +471,11 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
             <div className="flex items-center gap-2">
               <ServiceExportButton rows={filtered} fileBaseName={serviceName} />
               <Button size="sm" variant="outline" className="h-9" onClick={() => setShowChart((v) => !v)}>
-                {showChart ? <EyeOff className="w-3.5 h-3.5 mr-1.5" /> : <BarChart3 className="w-3.5 h-3.5 mr-1.5" />}
+                {showChart ? (
+                  <EyeOff className="w-3.5 h-3.5 mr-1.5" />
+                ) : (
+                  <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
+                )}
                 {showChart ? "Ocultar gráficos" : "Ver gráficos"}
               </Button>
               <Button size="sm" onClick={openAdd} className="h-9">
@@ -541,7 +562,9 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
