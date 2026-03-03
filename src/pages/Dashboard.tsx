@@ -43,7 +43,6 @@ interface OutletContext {
 function formatDateOnlyFromAny(input: unknown): string | null {
   if (!input) return null;
 
-  // Se vier como Date
   if (input instanceof Date && !isNaN(input.getTime())) {
     const d = String(input.getDate()).padStart(2, "0");
     const m = String(input.getMonth() + 1).padStart(2, "0");
@@ -51,11 +50,9 @@ function formatDateOnlyFromAny(input: unknown): string | null {
     return `${d}/${m}/${y}`;
   }
 
-  // Se vier como string (ex: "2026-02-27 15:45:39.457854+00" ou ISO)
   const s = String(input).trim();
   if (!s) return null;
 
-  // pega só a parte yyyy-mm-dd se existir
   const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return null;
 
@@ -110,7 +107,6 @@ export default function DashboardPage() {
     [records, search]
   );
 
-  // KPIs
   const activeStatuses: RecordStatus[] = ["NOVO", "REUNIAO", "ANDAMENTO"];
   const totalActive = filtered.filter((r) => activeStatuses.includes(r.status)).length;
   const totalAndamento = filtered.filter((r) => r.status === "ANDAMENTO").length;
@@ -118,7 +114,6 @@ export default function DashboardPage() {
   const totalCancelado = filtered.filter((r) => r.status === "CANCELADO").length;
   const totalDevolvido = filtered.filter((r) => r.status === "DEVOLVIDO").length;
 
-  // Pie chart data: por serviço
   const serviceChartData = useMemo(
     () =>
       services
@@ -130,7 +125,6 @@ export default function DashboardPage() {
     [services, filtered]
   );
 
-  // Top service
   const topService: (Service & { count: number }) | null = useMemo(() => {
     return services.reduce<(Service & { count: number }) | null>((top, s) => {
       const count = filtered.filter((r) => r.service_id === s.id).length;
@@ -138,7 +132,6 @@ export default function DashboardPage() {
     }, null);
   }, [services, filtered]);
 
-  // Status bar chart data
   const statusChartData = useMemo(
     () =>
       (["NOVO", "REUNIAO", "ANDAMENTO", "FINALIZADO", "CANCELADO", "DEVOLVIDO"] as RecordStatus[]).map((s) => ({
@@ -180,10 +173,7 @@ export default function DashboardPage() {
       />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-        {/* ✅ Só data (sem hora) */}
-        <div className="text-xs text-muted-foreground -mt-2">
-          Atualizado em: {lastUpdateDateOnlyBR ?? "—"}
-        </div>
+        <div className="text-xs text-muted-foreground -mt-2">Atualizado em: {lastUpdateDateOnlyBR ?? "—"}</div>
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
@@ -191,7 +181,6 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {kpis.map((kpi) => (
                 <div key={kpi.label} className="kpi-card">
@@ -209,7 +198,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Bar Chart - Volume por Status */}
               <div className="lg:col-span-2 corp-card p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Volume por Status</h3>
                 <ResponsiveContainer width="100%" height={220}>
@@ -231,20 +219,11 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-4">
-                {/* Pie - por serviço */}
                 <div className="corp-card p-5">
                   <h3 className="text-sm font-semibold text-foreground mb-3">Por Serviço</h3>
                   <ResponsiveContainer width="100%" height={140}>
                     <PieChart>
-                      <Pie
-                        data={serviceChartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={35}
-                        outerRadius={55}
-                        dataKey="value"
-                        paddingAngle={3}
-                      >
+                      <Pie data={serviceChartData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={3}>
                         {serviceChartData.map((_, index) => (
                           <Cell key={index} fill={SERVICE_COLORS[index % SERVICE_COLORS.length]} />
                         ))}
@@ -256,10 +235,7 @@ export default function DashboardPage() {
                     {serviceChartData.map((item, i) => (
                       <div key={item.name} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }}
-                          />
+                          <div className="w-2 h-2 rounded-full" style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }} />
                           <span className="text-muted-foreground truncate max-w-[100px]">{item.name}</span>
                         </div>
                         <span className="font-semibold text-foreground">{item.value}</span>
@@ -268,7 +244,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Top Serviço */}
                 {topService?.name ? (
                   <div
                     className="corp-card p-4"
@@ -285,7 +260,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Recent Records */}
             <div className="corp-card overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros Recentes</h3>
@@ -299,68 +273,46 @@ export default function DashboardPage() {
                       <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
                       <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Serviço</th>
                       <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">
-                        Responsável
-                      </th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">
-                        Data início
-                      </th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Responsável</th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Data início</th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-border">
-  {recentRecords.length === 0 ? (
-    <tr>
-      <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-        {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
-      </td>
-    </tr>
-  ) : (
-    recentRecords.map((r) => {
-      const svc = services.find((s) => s.id === r.service_id);
+                    {recentRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                          {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
+                        </td>
+                      </tr>
+                    ) : (
+                      recentRecords.map((r) => {
+                        const svc = services.find((s) => s.id === r.service_id);
 
-      return (
-        <tr key={r.id} className="table-row-hover">
-          <td colSpan={5} className="p-0">
-            <button
-              type="button"
-              className="w-full text-left px-5 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              onClick={() => openDetails(r)}
-            >
-              {/* “Grid” para imitar as colunas da tabela */}
-              <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
-                {/* Cliente */}
-                <div className="font-medium text-foreground truncate">
-                  {r.client_name}
-                </div>
-
-                {/* Serviço */}
-                <div className="text-muted-foreground text-xs truncate">
-                  {svc?.name ?? "—"}
-                </div>
-
-                {/* Status */}
-                <div>
-                  <StatusBadge status={r.status} />
-                </div>
-
-                {/* Responsável (só >= sm) */}
-                <div className="hidden sm:block text-muted-foreground text-xs truncate">
-                  {r.owner || "—"}
-                </div>
-
-                {/* Data início (só >= md) */}
-                <div className="hidden md:block text-muted-foreground text-xs">
-                  {formatDateOnlyBR(r.start_date)}
-                </div>
-              </div>
-            </button>
-          </td>
-        </tr>
-      );
-    })
-  )}
-</tbody>
+                        return (
+                          <tr key={r.id} className="table-row-hover">
+                            <td colSpan={5} className="p-0">
+                              <button
+                                type="button"
+                                className="w-full text-left px-5 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                onClick={() => openDetails(r)}
+                              >
+                                <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
+                                  <div className="font-medium text-foreground truncate">{r.client_name}</div>
+                                  <div className="text-muted-foreground text-xs truncate">{svc?.name ?? "—"}</div>
+                                  <div>
+                                    <StatusBadge status={r.status} />
+                                  </div>
+                                  <div className="hidden sm:block text-muted-foreground text-xs truncate">{r.owner || "—"}</div>
+                                  <div className="hidden md:block text-muted-foreground text-xs">{formatDateOnlyBR(r.start_date)}</div>
+                                </div>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
                 </table>
               </div>
             </div>
@@ -368,15 +320,20 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ✅ Sheet de detalhes (igual do card) */}
-      <ServiceRecordDetailsSheet
-        open={detailsOpen}
-        onOpenChange={setDetailsOpen}
-        record={detailsRecord}
-        isAdmin={isAdmin}
-        onEdit={() => {}}
-        onAskDelete={() => {}}
-      />
+      {/* ✅ IMPORTANTE: renderiza o Sheet APENAS quando estiver aberto (evita overlay invisível bloqueando clique) */}
+      {detailsOpen ? (
+        <ServiceRecordDetailsSheet
+          open={detailsOpen}
+          onOpenChange={(o) => {
+            setDetailsOpen(o);
+            if (!o) setDetailsRecord(null);
+          }}
+          record={detailsRecord}
+          isAdmin={isAdmin}
+          onEdit={() => {}}
+          onAskDelete={() => {}}
+        />
+      ) : null}
     </div>
   );
 }

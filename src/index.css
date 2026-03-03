@@ -76,35 +76,35 @@
   }
 
   .dark {
-  --background: 222 47% 11%;      /* #0b1220-ish */
-  --foreground: 210 40% 98%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-  --card: 222 44% 13%;            /* cards um pouco acima do fundo */
-  --card-foreground: 210 40% 98%;
+    --card: 222 44% 13%;
+    --card-foreground: 210 40% 98%;
 
-  --popover: 222 44% 13%;
-  --popover-foreground: 210 40% 98%;
+    --popover: 222 44% 13%;
+    --popover-foreground: 210 40% 98%;
 
-  --primary: 217 91% 60%;         /* azul corporativo */
-  --primary-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
 
-  --secondary: 215 28% 17%;
-  --secondary-foreground: 210 40% 98%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-  --muted: 215 28% 17%;
-  --muted-foreground: 215 20% 72%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 20% 72%;
 
-  --accent: 215 28% 17%;
-  --accent-foreground: 210 40% 98%;
+    --accent: 215 28% 17%;
+    --accent-foreground: 210 40% 98%;
 
-  --destructive: 0 62% 50%;
-  --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
 
-  --border: 215 28% 22%;          /* borda visível porém discreta */
-  --input: 215 28% 22%;
-  --ring: 217 91% 60%;
+    --border: 215 28% 22%;
+    --input: 215 28% 22%;
+    --ring: 217 91% 60%;
 
-  --radius: 1rem;
+    --radius: 1rem;
   }
 
   * {
@@ -125,7 +125,6 @@
 }
 
 @layer components {
-  /* Status Badge Variants */
   .status-novo {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
     color: hsl(var(--status-novo));
@@ -157,17 +156,15 @@
     background-color: hsl(var(--status-devolvido-bg));
   }
 
-  /* Card with corporate shadow */
   .corp-card {
-  @apply rounded-2xl border border-border bg-card shadow-sm;
-}
+    @apply rounded-2xl border border-border bg-card shadow-sm;
+  }
 
   .corp-card-elevated {
     @apply bg-card rounded-xl border border-border;
     box-shadow: var(--shadow-elevated);
   }
 
-  /* Sidebar nav item */
   .sidebar-nav-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer;
     color: hsl(var(--sidebar-fg));
@@ -184,12 +181,10 @@
     border-left: 3px solid hsl(var(--sidebar-active));
   }
 
-  /* KPI Card */
   .kpi-card {
-  @apply rounded-2xl border border-border bg-card shadow-sm p-4 transition hover:shadow-md;
-}
+    @apply rounded-2xl border border-border bg-card shadow-sm p-4 transition hover:shadow-md;
+  }
 
-  /* Table row hover */
   .table-row-hover:hover {
     @apply hover:bg-muted/40 transition-colors;
   }
@@ -211,7 +206,6 @@
   background: hsl(var(--muted-foreground));
 }
 
-    
 /* --- UI polish animations (passos 1-5) --- */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translate3d(0, 8px, 0); }
