@@ -49,12 +49,13 @@ export function ServiceKPIs({ records, loading }: { records: ServiceRecord[]; lo
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {kpis.map((k) => {
+      {kpis.map((k, index) => {
         const Icon = k.icon;
         return (
           <div
             key={k.label}
-            className={`relative overflow-hidden group p-5 rounded-2xl border border-white/10 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-gradient-to-br ${k.color} text-white`}
+            className={`relative overflow-hidden group p-5 rounded-2xl border border-white/10 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-gradient-to-br ${k.color} text-white anim-fade-up`}
+            style={{ animationDelay: `${index * 100}ms` }}
           >
             {/* Background pattern */}
             <div className="absolute -right-4 -top-4 opacity-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12 text-white">

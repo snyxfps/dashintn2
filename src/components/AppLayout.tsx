@@ -14,8 +14,10 @@ export const AppLayout: React.FC = () => {
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Outlet context={{ onMenuClick: () => setMobileOpen(true) }} />
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <main className="flex-1 overflow-y-auto">
+          <Outlet context={{ onMenuClick: () => setMobileOpen(true) }} />
+        </main>
       </div>
     </div>
   );

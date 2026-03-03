@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Layers, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Layers, Eye, EyeOff, LogIn, Sparkles, ShieldCheck } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { signIn, signUp } = useAuth();
@@ -37,83 +37,100 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, hsl(222 75% 14%) 0%, hsl(222 75% 22%) 100%)' }}>
-      {/* Left Panel */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 p-12 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'hsl(213 90% 55% / 0.2)', border: '1px solid hsl(213 90% 55% / 0.4)' }}>
-            <Layers className="w-5 h-5" style={{ color: 'hsl(213 90% 65%)' }} />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#020617]">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+
+      {/* Container */}
+      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-0 rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative z-10 bg-slate-900/40 backdrop-blur-xl anim-zoom-in">
+
+        {/* Left Panel: Info & Branding */}
+        <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border-r border-white/5 relative overflow-hidden">
+          {/* Subtle grain overlay */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+
+          <div className="relative z-10 flex items-center gap-3 anim-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <Layers className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-black text-white tracking-tighter uppercase italic leading-none">
+              Central<span className="text-blue-400 block text-sm -mt-1">de Integrações</span>
+            </span>
           </div>
-          <span className="text-xl font-bold tracking-tight">Central de Integrações</span>
-        </div>
 
-        <div>
-          <h1 className="text-4xl font-bold leading-tight mb-4" style={{ letterSpacing: '-0.03em' }}>
-            Gestão operacional<br />
-            <span style={{ color: 'hsl(213 90% 65%)' }}>centralizada e eficiente</span>
-          </h1>
-          <p className="text-base opacity-70 leading-relaxed max-w-sm">
-            Acompanhe integrações SMP, Multicadastro, RC-V, Tecnologia Logística e Tecnologia Risco em tempo real, com visibilidade total dos clientes e status.
-          </p>
-        </div>
-
-        <div className="flex gap-8">
-          {[
-            { label: 'Serviços', value: '5' },
-            { label: 'Clientes ativos', value: '25+' },
-          ].map(item => (
-            <div key={item.label}>
-              <div className="text-3xl font-bold" style={{ color: 'hsl(213 90% 65%)' }}>{item.value}</div>
-              <div className="text-xs opacity-60 mt-0.5">{item.label}</div>
+          <div className="relative z-10 anim-fade-up" style={{ animationDelay: '0.2s' }}>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6">
+              <Sparkles className="w-3 h-3" />
+              SISTEMA INTELIGENTE
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right Panel */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="relative rounded-2xl p-8 shadow-2xl border border-white/10 bg-white/90 backdrop-blur">
-            <div className="absolute inset-0 -z-10 rounded-2xl opacity-60" style={{ background: "radial-gradient(1200px circle at top, rgba(59,130,246,0.18), transparent 55%)" }} />
-            {/* Mobile Logo */}
-            <div className="lg:hidden flex items-center gap-2 mb-6">
-              <Layers className="w-5 h-5" style={{ color: 'hsl(222 75% 28%)' }} />
-              <span className="font-bold text-sm" style={{ color: 'hsl(222 75% 28%)' }}>Central de Integrações</span>
-            </div>
-
-            <h2 className="text-2xl font-bold mb-1" style={{ color: 'hsl(220 30% 12%)', letterSpacing: '-0.02em' }}>
-              {mode === 'login' ? 'Bem-vindo!' : 'Criar conta'}
-            </h2>
-            <p className="text-sm mb-6" style={{ color: 'hsl(220 15% 50%)' }}>
-              {mode === 'login' ? 'Faça login para acessar o painel' : 'Preencha os dados para criar sua conta'}
+            <h1 className="text-5xl font-extrabold text-white leading-[1.1] mb-6 tracking-tight">
+              Domine seus dados<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">em tempo real.</span>
+            </h1>
+            <p className="text-slate-400 text-lg leading-relaxed max-w-md font-medium">
+              Gestão centralizada de integrações e monitoramento inteligente com visibilidade 360º de seus clientes.
             </p>
+          </div>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Right Panel: Form */}
+        <div className="p-8 lg:p-16 flex flex-col justify-center bg-[#020617]/40 relative">
+          <div className="max-w-md mx-auto w-full">
+            {/* Mobile Header */}
+            <div className="lg:hidden flex flex-col items-center mb-8 gap-4 anim-fade-up">
+              <div className="w-16 h-16 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <Layers className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-black text-white tracking-tighter uppercase italic text-center leading-none">
+                Central<span className="text-blue-400">de Integrações</span>
+              </h1>
+            </div>
+
+            <div className="anim-fade-up" style={{ animationDelay: '0.1s' }}>
+              <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
+                {mode === 'login' ? 'Acessar painel' : 'Criar nova conta'}
+              </h2>
+              <p className="text-slate-400 mb-8 font-medium">
+                {mode === 'login'
+                  ? 'Bem-vindo de volta! Insira suas credenciais abaixo.'
+                  : 'Seja parte da nossa central. Preencha os campos.'}
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5 anim-fade-up" style={{ animationDelay: '0.2s' }}>
               {mode === 'signup' && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="fullName" className="text-sm font-medium">Nome completo</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-sm font-semibold text-slate-300">Nome Completo</Label>
                   <Input
                     id="fullName"
-                    placeholder="Seu nome"
+                    placeholder="Ex: João da Silva"
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
                     required
+                    className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl"
                   />
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-semibold text-slate-300">E-mail Corporativo</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="seu@email.com"
+                  placeholder="nome@empresa.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
+                  className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm font-semibold text-slate-300">Senha</Label>
+                  {mode === 'login' && (
+                    <button type="button" className="text-xs text-blue-400 hover:underline font-bold">Esqueceu a senha?</button>
+                  )}
+                </div>
                 <div className="relative">
                   <Input
                     id="password"
@@ -122,55 +139,56 @@ export const LoginPage: React.FC = () => {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
-                    className="pr-10"
+                    className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl pr-12"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                   >
-                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
               <Button
                 type="submit"
-                className="w-full h-10 font-semibold"
+                className="w-full h-12 font-bold text-lg rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]"
                 disabled={loading}
-                style={{ background: 'hsl(222 75% 28%)', color: 'white' }}
               >
                 {loading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {mode === 'login' ? 'Entrando...' : 'Criando conta...'}
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Processando...</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <LogIn className="w-4 h-4" />
-                    {mode === 'login' ? 'Entrar' : 'Criar conta'}
+                  <div className="flex items-center justify-center gap-2">
+                    <LogIn className="w-5 h-5" />
+                    <span>{mode === 'login' ? 'Entrar Agora' : 'Finalizar Cadastro'}</span>
                   </div>
                 )}
               </Button>
             </form>
 
-            <div className="mt-5 text-center text-sm" style={{ color: 'hsl(220 15% 50%)' }}>
-              {mode === 'login' ? (
-                <>Não tem conta?{' '}
-                  <button onClick={() => setMode('signup')} className="font-semibold hover:underline" style={{ color: 'hsl(222 75% 28%)' }}>
-                    Criar agora
-                  </button>
-                </>
-              ) : (
-                <>Já tem conta?{' '}
-                  <button onClick={() => setMode('login')} className="font-semibold hover:underline" style={{ color: 'hsl(222 75% 28%)' }}>
-                    Fazer login
-                  </button>
-                </>
-              )}
-            </div>
+            <div className="mt-8 pt-8 border-t border-white/5 text-center anim-fade-up" style={{ animationDelay: '0.3s' }}>
+              <div className="flex flex-col gap-4">
+                <p className="text-sm font-medium text-slate-500">
+                  {mode === 'login' ? 'Ainda não possui acesso?' : 'Já possui uma conta ativa?'}
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+                  className="w-full h-12 bg-transparent border-white/10 text-white hover:bg-white/5 rounded-xl font-bold"
+                >
+                  {mode === 'login' ? 'Criar Conta' : 'Voltar para o Login'}
+                </Button>
+              </div>
 
-            {/* Conta demo removida */}
+              <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em]">
+                <ShieldCheck className="w-3 h-3 text-blue-500" />
+                ACESSO SEGURO E CRIPTOGRAFADO
+              </div>
+            </div>
           </div>
         </div>
       </div>

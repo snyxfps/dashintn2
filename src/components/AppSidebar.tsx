@@ -32,14 +32,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ collapsed, onToggle, mob
     <div className="flex flex-col h-full" style={{ background: 'hsl(222 75% 18%)' }}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b" style={{ borderColor: 'hsl(222 50% 25%)' }}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: 'hsl(213 90% 55% / 0.2)', border: '1px solid hsl(213 90% 55% / 0.4)' }}>
-          <Layers className="w-4 h-4" style={{ color: 'hsl(213 90% 65%)' }} />
+        <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0 border border-white/10">
+          <Layers className="w-5 h-5 text-white" />
         </div>
         {!collapsed && (
-          <div className="overflow-hidden">
-            <div className="text-sm font-bold text-white leading-tight whitespace-nowrap">Central de</div>
-            <div className="text-xs font-semibold whitespace-nowrap" style={{ color: 'hsl(213 90% 65%)' }}>Integrações</div>
+          <div className="overflow-hidden anim-fade">
+            <div className="text-sm font-black text-white leading-none tracking-tighter uppercase italic">
+              Central <span className="text-blue-400">de Integrações</span>
+            </div>
           </div>
         )}
       </div>
@@ -103,13 +103,11 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ collapsed, onToggle, mob
         )}
         <button
           onClick={() => signOut()}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors"
+          className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:bg-rose-500/10 active:scale-[0.98] group"
           style={{ color: 'hsl(0 72% 70%)' }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'hsl(0 72% 20%)'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
         >
-          <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>Sair</span>}
+          <LogOut className="w-4 h-4 flex-shrink-0 transition-transform group-hover:-translate-x-1" />
+          {!collapsed && <span className="font-bold">Sair do Sistema</span>}
         </button>
       </div>
     </div>

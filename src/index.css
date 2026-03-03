@@ -117,7 +117,12 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Inter', system-ui, sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -130,26 +135,31 @@
     color: hsl(var(--status-novo));
     background-color: hsl(var(--status-novo-bg));
   }
+
   .status-reuniao {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
     color: hsl(var(--status-reuniao));
     background-color: hsl(var(--status-reuniao-bg));
   }
+
   .status-andamento {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
     color: hsl(var(--status-andamento));
     background-color: hsl(var(--status-andamento-bg));
   }
+
   .status-finalizado {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
     color: hsl(var(--status-finalizado));
     background-color: hsl(var(--status-finalizado-bg));
   }
+
   .status-cancelado {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
     color: hsl(var(--status-cancelado));
     background-color: hsl(var(--status-cancelado-bg));
   }
+
   .status-devolvido {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
     color: hsl(var(--status-devolvido));
@@ -195,32 +205,109 @@
   width: 5px;
   height: 5px;
 }
+
 ::-webkit-scrollbar-track {
   background: hsl(var(--muted));
 }
+
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
   border-radius: 99px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
 }
 
 /* --- UI polish animations (passos 1-5) --- */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
-.anim-fade-up { animation: fadeInUp 260ms ease-out both; }
-.anim-fade { animation: fadeIn 220ms ease-out both; }
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.anim-fade-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.anim-fade {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+.anim-zoom-in {
+  animation: zoomIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.anim-slide-right {
+  animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
 /* Slightly nicer focus ring in dark */
 .dark .focus-ring-premium:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-skeleton {
+  background: linear-gradient(90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted) / 0.5) 50%,
+      hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Base transitions for page content */
+main {
+  @apply anim-zoom-in;
 }

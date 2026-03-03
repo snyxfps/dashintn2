@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, History as HistoryIcon } from "lucide-react";
 
 interface OutletContext {
   onMenuClick: () => void;
@@ -44,7 +43,7 @@ function downloadCsv(rows: Record<string, any>[], fileBaseName: string) {
   const headers = Object.keys(rows[0]);
   const escape = (v: unknown) => {
     const s = String(v ?? "");
-    return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
   const lines = [
@@ -69,7 +68,6 @@ export default function AuditoriaPage() {
   const [recordsById, setRecordsById] = useState<Record<string, RecordMini>>({});
   const [servicesById, setServicesById] = useState<Record<string, string>>({});
 
-  // filtros simples
   const [filterService, setFilterService] = useState<string>("ALL");
   const [filterAction, setFilterAction] = useState<AuditAction | "ALL">("ALL");
   const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
@@ -80,14 +78,12 @@ export default function AuditoriaPage() {
     try {
       const sb: any = supabase;
 
-      // 1) services map
       const { data: svcData, error: svcErr } = await sb.from("services").select("id,name");
       if (svcErr) throw svcErr;
       const svcMap: Record<string, string> = {};
       (svcData ?? []).forEach((s: ServiceMini) => (svcMap[String(s.id)] = String(s.name)));
       setServicesById(svcMap);
 
-      // 2) audit logs (recent first)
       const { data: auditData, error: auditErr } = await sb
         .from("record_audit_logs")
         .select("*")
@@ -99,7 +95,6 @@ export default function AuditoriaPage() {
       const rows = (auditData ?? []) as AuditRow[];
       setLogs(rows);
 
-      // 3) fetch records referenced by logs (batch IN)
       const ids = Array.from(new Set(rows.map((r) => String(r.record_id)).filter(Boolean)));
       if (ids.length === 0) {
         setRecordsById({});
@@ -169,22 +164,22 @@ export default function AuditoriaPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <AppHeader title="Auditoria" subtitle="Histórico de alterações (Status/CRUD)" onMenuClick={onMenuClick} />
+      <AppHeader title="Auditoria" subtitle="Histórico de alterações (Log Global)" onMenuClick={onMenuClick} />
 
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
         {/* filtros */}
         <div className="corp-card p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="space-y-1.5">
-              <Label>Serviço</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Serviço</Label>
               <Select value={filterService} onValueChange={setFilterService}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-9 truncate">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   {servicesList.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s === "ALL" ? "Todos" : s}
+                      {s === "ALL" ? "Todos os Serviços" : s}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -192,29 +187,29 @@ export default function AuditoriaPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Ação</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ação</Label>
               <Select value={filterAction} onValueChange={(v) => setFilterAction(v as any)}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">Todas</SelectItem>
-                  <SelectItem value="STATUS_CHANGE">Status</SelectItem>
-                  <SelectItem value="CREATE">Create</SelectItem>
-                  <SelectItem value="UPDATE">Update</SelectItem>
-                  <SelectItem value="DELETE">Delete</SelectItem>
+                  <SelectItem value="ALL">Todas as Ações</SelectItem>
+                  <SelectItem value="STATUS_CHANGE">Alteração de Status</SelectItem>
+                  <SelectItem value="CREATE">Criação</SelectItem>
+                  <SelectItem value="UPDATE">Edição</SelectItem>
+                  <SelectItem value="DELETE">Exclusão</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Status atual</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Status Atual</Label>
               <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">Todos</SelectItem>
+                  <SelectItem value="ALL">Qualquer Status</SelectItem>
                   {STATUS_OPTIONS.map((s) => (
                     <SelectItem key={s} value={s}>
                       {STATUS_CONFIG[s].label}
@@ -225,61 +220,100 @@ export default function AuditoriaPage() {
             </div>
 
             <div className="space-y-1.5 lg:col-span-2">
-              <Label>Cliente</Label>
-              <Input placeholder="Buscar por cliente..." value={searchClient} onChange={(e) => setSearchClient(e.target.value)} />
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Filtrar Cliente</Label>
+              <Input placeholder="Digitar nome do cliente..." value={searchClient} onChange={(e) => setSearchClient(e.target.value)} className="h-9" />
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => downloadCsv(exportRows as any, `auditoria-${new Date().toISOString().slice(0,10)}`)}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar CSV
+          <div className="mt-4 flex items-center justify-between gap-2 border-t pt-4">
+            <div className="text-xs text-muted-foreground">
+              Mostrando <span className="font-bold text-foreground">{filtered.length}</span> registros recentes
+            </div>
+            <Button variant="outline" size="sm" onClick={() => downloadCsv(exportRows as any, `auditoria-${new Date().toISOString().slice(0, 10)}`)} className="h-8 text-xs">
+              <Download className="h-3 w-3 mr-2 text-blue-500" />
+              Exportar para Planilha
             </Button>
           </div>
         </div>
 
         {/* tabela */}
-        <div className="corp-card p-4">
+        <div className="corp-card overflow-hidden">
           {loading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
+            <div className="p-6 space-y-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-10 w-32 shimmer-skeleton rounded-lg" />
+                  <div className="h-10 w-full shimmer-skeleton rounded-lg" />
+                  <div className="h-10 w-24 shimmer-skeleton rounded-lg" />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Quando</TableHead>
-                    <TableHead>Serviço</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Ação</TableHead>
-                    <TableHead>Campo</TableHead>
-                    <TableHead>De</TableHead>
-                    <TableHead>Para</TableHead>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="hover:bg-transparent border-b border-border/50">
+                    <TableHead className="py-4 font-bold text-foreground h-12">Quando</TableHead>
+                    <TableHead className="py-4 font-bold text-foreground h-12">Serviço / Cliente</TableHead>
+                    <TableHead className="py-4 font-bold text-foreground text-center h-12">Evento</TableHead>
+                    <TableHead className="py-4 font-bold text-foreground text-center h-12">Campo</TableHead>
+                    <TableHead className="py-4 font-bold text-foreground h-12">Mudança (De → Para)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((l) => {
                     const rec = recordsById[String(l.record_id)];
                     const serviceName = rec?.service_id ? servicesById[String(rec.service_id)] : "—";
+
+                    const actionConfig: Record<AuditAction, { label: string, style: string }> = {
+                      CREATE: { label: "Criação", style: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+                      UPDATE: { label: "Edição", style: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+                      DELETE: { label: "Exclusão", style: "bg-rose-500/10 text-rose-500 border-rose-500/20" },
+                      STATUS_CHANGE: { label: "Status", style: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+                    };
+
+                    const action = actionConfig[l.action] || { label: l.action, style: "bg-muted text-muted-foreground" };
+
                     return (
-                      <TableRow key={l.id}>
-                        <TableCell className="whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</TableCell>
-                        <TableCell className="whitespace-nowrap">{serviceName}</TableCell>
-                        <TableCell className="min-w-[220px]">{rec?.client_name ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{l.action}</TableCell>
-                        <TableCell className="whitespace-nowrap">{l.field_name ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{l.old_value ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{l.new_value ?? "—"}</TableCell>
+                      <TableRow key={l.id} className="group transition-colors hover:bg-muted/30 border-b border-border/40">
+                        <TableCell className="whitespace-nowrap py-4">
+                          <div className="text-sm font-semibold">{new Date(l.created_at).toLocaleDateString()}</div>
+                          <div className="text-[10px] font-medium text-muted-foreground uppercase">{new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="text-[10px] font-black text-blue-500 uppercase tracking-tighter">{serviceName}</div>
+                          <div className="text-sm font-bold truncate max-w-[280px] text-foreground">{rec?.client_name ?? "—"}</div>
+                        </TableCell>
+                        <TableCell className="py-4 text-center">
+                          <div className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-black border uppercase tracking-widest ${action.style}`}>
+                            {action.label}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 text-center">
+                          <span className="text-[10px] font-mono font-bold bg-muted/50 px-2 py-1 rounded border border-border/50 text-muted-foreground">
+                            {l.field_name ?? "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground truncate max-w-[150px] italic">{l.old_value ?? "vazio"}</span>
+                            <span className="text-muted-foreground/40 font-light">→</span>
+                            <span className="text-xs font-bold truncate max-w-[150px] text-foreground">{l.new_value ?? "—"}</span>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-10">
-                        Nenhum registro encontrado com os filtros atuais.
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-24 bg-muted/5">
+                        <div className="flex flex-col items-center gap-3 opacity-30">
+                          <HistoryIcon className="h-12 w-12" />
+                          <div className="space-y-1">
+                            <p className="font-bold text-lg">Sua busca não retornou nada</p>
+                            <p className="text-xs">Tente remover filtros ou usar termos mais genéricos.</p>
+                          </div>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : null}
