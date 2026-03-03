@@ -77,13 +77,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
 
-  // ✅ expansão da linha
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const toggleRow = (id: string) => setExpandedId((prev) => (prev === id ? null : id));
+  // ✅ pega o tipo real do id do ServiceRecord (string OU number, o que for no seu projeto)
+  const [expandedId, setExpandedId] = useState<ServiceRecord["id"] | null>(null);
+  const toggleRow = (id: ServiceRecord["id"]) => setExpandedId((prev) => (prev === id ? null : id));
 
   const { isAdmin } = useAuth();
 
-  // Sheet (mantido — opcional)
+  // Sheet
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsRecord, setDetailsRecord] = useState<ServiceRecord | null>(null);
 
@@ -130,7 +130,6 @@ export default function DashboardPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return records;
-
     return records.filter((r) => (r.client_name || "").toLowerCase().includes(q));
   }, [records, search]);
 
@@ -185,12 +184,14 @@ export default function DashboardPage() {
   const recentRecords = filtered.slice(0, 8);
   const lastUpdateDateOnlyBR = formatDateOnlyFromAny(lastUpdate);
 
-  // helpers robustos (evita “undefined explode”)
+  // helpers (bem tolerantes)
   const getServiceName = (serviceId: string | null) => services.find((s) => s.id === serviceId)?.name ?? "—";
   const getOwner = (r: ServiceRecord) =>
     (r as any).owner_name ?? (r as any).owner ?? (r as any).responsible ?? (r as any).assigned_to ?? "—";
   const getStartDate = (r: ServiceRecord) =>
     formatDateOnlyFromAny((r as any).start_date ?? (r as any).date_start ?? (r as any).data_inicio ?? r.created_at) ?? "—";
+  const getNotes = (r: ServiceRecord) =>
+    (r as any).notes ?? (r as any).observacoes ?? (r as any).obs ?? (r as any).description ?? "—";
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-muted/30 to-background">
@@ -280,21 +281,6 @@ export default function DashboardPage() {
                       <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
-
-                  <div className="space-y-1 mt-2">
-                    {serviceChartData.map((item, i) => (
-                      <div key={item.name} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }}
-                          />
-                          <span className="text-muted-foreground truncate max-w-[100px]">{item.name}</span>
-                        </div>
-                        <span className="font-semibold text-foreground">{item.value}</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
                 {/* Top Serviço */}
@@ -314,15 +300,15 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Recent Records (LISTA CLICÁVEL COM EXPANSÃO) */}
+            {/* LISTA CLICÁVEL (à prova de overlay) */}
             <div className="corp-card overflow-hidden relative z-10">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
                 <span className="text-xs text-muted-foreground">Mostrando os últimos registros do filtro.</span>
               </div>
 
-              <div className="overflow-x-auto relative z-10">
-                <table className="w-full text-sm relative z-10">
+              <div className="overflow-x-auto relative z-20 pointer-events-auto">
+                <table className="w-full text-sm relative z-20 pointer-events-auto">
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
@@ -342,67 +328,39 @@ export default function DashboardPage() {
                       const isOpen = expandedId === record.id;
 
                       return (
-                        <React.Fragment key={record.id}>
-                          {/* Linha principal */}
-                          <tr
-                            onClick={() => toggleRow(record.id)}
-                            className="cursor-pointer hover:bg-muted/40 transition-colors"
-                            role="button"
-                            aria-expanded={isOpen}
-                          >
+                        <React.Fragment key={String(record.id)}>
+                          <tr className="hover:bg-muted/40 transition-colors">
+                            {/* ✅ botão dentro da célula = clique sempre funciona */}
                             <td className="px-5 py-3 font-medium text-foreground">
-                              <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleRow(record.id)}
+                                className="w-full text-left flex items-center gap-2 pointer-events-auto"
+                              >
                                 {isOpen ? (
-                                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                                  <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
                                 ) : (
-                                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                                 )}
                                 <span className="truncate">{record.client_name ?? "—"}</span>
-                              </div>
+                              </button>
                             </td>
 
                             <td className="px-3 py-3 text-foreground/90">{getServiceName(record.service_id)}</td>
-
-                            <td className="px-3 py-3">
-                              {/* Se você quiser o badge, pode trocar por <StatusBadge status={record.status} /> */}
-                              <span className="text-foreground/90">{STATUS_CONFIG[record.status]?.label ?? record.status}</span>
+                            <td className="px-3 py-3 text-foreground/90">
+                              {STATUS_CONFIG[record.status]?.label ?? record.status}
                             </td>
-
                             <td className="px-3 py-3 hidden sm:table-cell text-foreground/80">{getOwner(record)}</td>
-
                             <td className="px-3 py-3 hidden md:table-cell text-foreground/80">{getStartDate(record)}</td>
                           </tr>
 
-                          {/* Linha expandida */}
                           {isOpen && (
                             <tr className="bg-muted/30">
                               <td colSpan={5} className="px-5 py-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                                   <div>
-                                    <div className="text-xs text-muted-foreground">Cliente</div>
-                                    <div className="font-medium text-foreground">{record.client_name ?? "—"}</div>
-                                  </div>
-
-                                  <div>
-                                    <div className="text-xs text-muted-foreground">Serviço</div>
-                                    <div className="font-medium text-foreground">{getServiceName(record.service_id)}</div>
-                                  </div>
-
-                                  <div>
-                                    <div className="text-xs text-muted-foreground">Status</div>
-                                    <div className="font-medium text-foreground">
-                                      {STATUS_CONFIG[record.status]?.label ?? record.status}
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    <div className="text-xs text-muted-foreground">Responsável</div>
-                                    <div className="font-medium text-foreground">{getOwner(record)}</div>
-                                  </div>
-
-                                  <div>
-                                    <div className="text-xs text-muted-foreground">Início</div>
-                                    <div className="font-medium text-foreground">{getStartDate(record)}</div>
+                                    <div className="text-xs text-muted-foreground">Observações</div>
+                                    <div className="font-medium text-foreground break-words">{getNotes(record)}</div>
                                   </div>
 
                                   <div>
@@ -411,16 +369,32 @@ export default function DashboardPage() {
                                       {formatDateOnlyFromAny(record.created_at) ?? "—"}
                                     </div>
                                   </div>
+
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Responsável</div>
+                                    <div className="font-medium text-foreground">{getOwner(record)}</div>
+                                  </div>
                                 </div>
 
                                 <div className="mt-4 flex items-center gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => openDetails(record)}>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDetails(record);
+                                    }}
+                                  >
                                     Abrir painel completo
                                   </Button>
+
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => setExpandedId(null)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedId(null);
+                                    }}
                                     className="text-muted-foreground"
                                   >
                                     Fechar
@@ -448,7 +422,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ✅ Sheet: renderiza SOMENTE quando aberto (evita overlay invisível bloqueando clique) */}
       {detailsOpen ? (
         <ServiceRecordDetailsSheet
           open={detailsOpen}
