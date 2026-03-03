@@ -309,46 +309,58 @@ export default function DashboardPage() {
                   </thead>
 
                   <tbody className="divide-y divide-border">
-                    {recentRecords.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                          {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
-                        </td>
-                      </tr>
-                    ) : (
-                      recentRecords.map((r) => {
-                        const svc = services.find((s) => s.id === r.service_id);
+  {recentRecords.length === 0 ? (
+    <tr>
+      <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
+        {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
+      </td>
+    </tr>
+  ) : (
+    recentRecords.map((r) => {
+      const svc = services.find((s) => s.id === r.service_id);
 
-                        return (
-                          <tr
-  key={r.id}
-  className="table-row-hover cursor-pointer relative"
-  onClick={(e) => {
-    e.stopPropagation();
-    openDetails(r);
-  }}
-  style={{ pointerEvents: "auto" }}
->
-  <td className="px-5 py-3 font-medium text-foreground">
-    {r.client_name}
-  </td>
-  <td className="px-3 py-3 text-muted-foreground text-xs">
-    {svc?.name}
-  </td>
-  <td className="px-3 py-3">
-    <StatusBadge status={r.status} />
-  </td>
-  <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">
-    {r.owner}
-  </td>
-  <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
-    {formatDateOnlyBR(r.start_date)}
-  </td>
-</tr>
-                        );
-                      })
-                    )}
-                  </tbody>
+      return (
+        <tr key={r.id} className="table-row-hover">
+          <td colSpan={5} className="p-0">
+            <button
+              type="button"
+              className="w-full text-left px-5 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              onClick={() => openDetails(r)}
+            >
+              {/* “Grid” para imitar as colunas da tabela */}
+              <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
+                {/* Cliente */}
+                <div className="font-medium text-foreground truncate">
+                  {r.client_name}
+                </div>
+
+                {/* Serviço */}
+                <div className="text-muted-foreground text-xs truncate">
+                  {svc?.name ?? "—"}
+                </div>
+
+                {/* Status */}
+                <div>
+                  <StatusBadge status={r.status} />
+                </div>
+
+                {/* Responsável (só >= sm) */}
+                <div className="hidden sm:block text-muted-foreground text-xs truncate">
+                  {r.owner || "—"}
+                </div>
+
+                {/* Data início (só >= md) */}
+                <div className="hidden md:block text-muted-foreground text-xs">
+                  {formatDateOnlyBR(r.start_date)}
+                </div>
+              </div>
+            </button>
+          </td>
+        </tr>
+      );
+    })
+  )}
+</tbody>
                 </table>
               </div>
             </div>
