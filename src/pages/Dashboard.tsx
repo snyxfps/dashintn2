@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG } from "@/types";
+import type { ServiceRecord, Service, RecordStatus } from "@/types";
+import { STATUS_CONFIG } from "@/types";
 import { useLastUpdate } from "@/pages/dashboard/hooks/useLastUpdate";
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -85,6 +86,7 @@ export default function DashboardPage() {
       supabase.from("records").select("*").order("created_at", { ascending: false }),
       supabase.from("services").select("*"),
     ]);
+
     setRecords((recs as ServiceRecord[]) || []);
     setServices((svcs as Service[]) || []);
     setLoading(false);
@@ -107,6 +109,7 @@ export default function DashboardPage() {
     [records, search]
   );
 
+  // KPIs
   const activeStatuses: RecordStatus[] = ["NOVO", "REUNIAO", "ANDAMENTO"];
   const totalActive = filtered.filter((r) => activeStatuses.includes(r.status)).length;
   const totalAndamento = filtered.filter((r) => r.status === "ANDAMENTO").length;
@@ -114,6 +117,7 @@ export default function DashboardPage() {
   const totalCancelado = filtered.filter((r) => r.status === "CANCELADO").length;
   const totalDevolvido = filtered.filter((r) => r.status === "DEVOLVIDO").length;
 
+  // Pie chart data: por serviço
   const serviceChartData = useMemo(
     () =>
       services
@@ -125,6 +129,7 @@ export default function DashboardPage() {
     [services, filtered]
   );
 
+  // Top service
   const topService: (Service & { count: number }) | null = useMemo(() => {
     return services.reduce<(Service & { count: number }) | null>((top, s) => {
       const count = filtered.filter((r) => r.service_id === s.id).length;
@@ -132,6 +137,7 @@ export default function DashboardPage() {
     }, null);
   }, [services, filtered]);
 
+  // Status bar chart data
   const statusChartData = useMemo(
     () =>
       (["NOVO", "REUNIAO", "ANDAMENTO", "FINALIZADO", "CANCELADO", "DEVOLVIDO"] as RecordStatus[]).map((s) => ({
@@ -181,6 +187,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
+            {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {kpis.map((kpi) => (
                 <div key={kpi.label} className="kpi-card">
@@ -198,6 +205,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Bar Chart - Volume por Status */}
               <div className="lg:col-span-2 corp-card p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Volume por Status</h3>
                 <ResponsiveContainer width="100%" height={220}>
@@ -219,11 +227,20 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-4">
+                {/* Pie - por serviço */}
                 <div className="corp-card p-5">
                   <h3 className="text-sm font-semibold text-foreground mb-3">Por Serviço</h3>
                   <ResponsiveContainer width="100%" height={140}>
                     <PieChart>
-                      <Pie data={serviceChartData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={3}>
+                      <Pie
+                        data={serviceChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={35}
+                        outerRadius={55}
+                        dataKey="value"
+                        paddingAngle={3}
+                      >
                         {serviceChartData.map((_, index) => (
                           <Cell key={index} fill={SERVICE_COLORS[index % SERVICE_COLORS.length]} />
                         ))}
@@ -244,6 +261,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Top Serviço */}
                 {topService?.name ? (
                   <div
                     className="corp-card p-4"
@@ -260,6 +278,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Recent Records */}
             <div className="corp-card overflow-hidden relative z-10">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros Recentes</h3>
@@ -273,8 +292,12 @@ export default function DashboardPage() {
                       <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
                       <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Serviço</th>
                       <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Responsável</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Data início</th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">
+                        Responsável
+                      </th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">
+                        Data início
+                      </th>
                     </tr>
                   </thead>
 
@@ -290,12 +313,15 @@ export default function DashboardPage() {
                         const svc = services.find((s) => s.id === r.service_id);
 
                         return (
-                          <tr key={r.id} className="table-row-hover cursor-pointer" onClick={() => openDetails (r)}>
+                          <tr key={r.id} className="table-row-hover">
                             <td colSpan={5} className="p-0">
                               <button
                                 type="button"
-                                className="w-full text-left px-5 py-3 relative z-20 pointer-events-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                className="w-full text-left px-5 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                 onClick={() => openDetails(r)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") openDetails(r);
+                                }}
                               >
                                 <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
                                   <div className="font-medium text-foreground truncate">{r.client_name}</div>
@@ -320,7 +346,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ✅ IMPORTANTE: renderiza o Sheet APENAS quando estiver aberto (evita overlay invisível bloqueando clique) */}
+      {/* Sheet só existe quando aberto (evita overlay invisível bloqueando clique) */}
       {detailsOpen ? (
         <ServiceRecordDetailsSheet
           open={detailsOpen}
