@@ -15,6 +15,8 @@ export const LoginPage: React.FC = () => {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [verificationSent, setVerificationSent] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -27,8 +29,8 @@ export const LoginPage: React.FC = () => {
         if (error) {
           toast.error(error.message);
         } else {
-          toast.success('Conta criada com sucesso! Faça login.');
-          setMode('login');
+          toast.success('Cadastro realizado! Verifique seu e-mail.');
+          setVerificationSent(true);
         }
       }
     } finally {
@@ -87,108 +89,136 @@ export const LoginPage: React.FC = () => {
               </h1>
             </div>
 
-            <div className="anim-fade-up" style={{ animationDelay: '0.1s' }}>
-              <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
-                {mode === 'login' ? 'Acessar painel' : 'Criar nova conta'}
-              </h2>
-              <p className="text-slate-400 mb-8 font-medium">
-                {mode === 'login'
-                  ? 'Bem-vindo de volta! Insira suas credenciais abaixo.'
-                  : 'Seja parte da nossa central. Preencha os campos.'}
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-5 anim-fade-up" style={{ animationDelay: '0.2s' }}>
-              {mode === 'signup' && (
+            {verificationSent ? (
+              <div className="anim-fade-up space-y-6 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                  <ShieldCheck className="w-8 h-8 text-blue-400" />
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-sm font-semibold text-slate-300">Nome Completo</Label>
-                  <Input
-                    id="fullName"
-                    placeholder="Ex: João da Silva"
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                    required
-                    className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl"
-                  />
+                  <h2 className="text-3xl font-bold text-white tracking-tight">Verifique seu e-mail</h2>
+                  <p className="text-slate-400 font-medium leading-relaxed">
+                    Acabamos de enviar um e-mail para <span className="text-white font-bold">{email}</span> com um link para confirmar sua conta.
+                  </p>
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-slate-300">E-mail Corporativo</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="nome@empresa.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-sm font-semibold text-slate-300">Senha</Label>
-                  {mode === 'login' && (
-                    <button type="button" className="text-xs text-blue-400 hover:underline font-bold">Esqueceu a senha?</button>
-                  )}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-slate-400 italic">
+                  Após confirmar seu e-mail, você poderá acessar todos os recursos da Central de Integrações.
                 </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPass ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                    className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl pr-12"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                  >
-                    {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-12 font-bold text-lg rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]"
-                disabled={loading}
-              >
-                {loading ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Processando...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <LogIn className="w-5 h-5" />
-                    <span>{mode === 'login' ? 'Entrar Agora' : 'Finalizar Cadastro'}</span>
-                  </div>
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-8 pt-8 border-t border-white/5 text-center anim-fade-up" style={{ animationDelay: '0.3s' }}>
-              <div className="flex flex-col gap-4">
-                <p className="text-sm font-medium text-slate-500">
-                  {mode === 'login' ? 'Ainda não possui acesso?' : 'Já possui uma conta ativa?'}
-                </p>
                 <Button
-                  variant="outline"
-                  onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-                  className="w-full h-12 bg-transparent border-white/10 text-white hover:bg-white/5 rounded-xl font-bold"
+                  onClick={() => {
+                    setVerificationSent(false);
+                    setMode('login');
+                  }}
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl"
                 >
-                  {mode === 'login' ? 'Criar Conta' : 'Voltar para o Login'}
+                  Voltar para o Login
                 </Button>
               </div>
+            ) : (
+              <>
+                <div className="anim-fade-up" style={{ animationDelay: '0.1s' }}>
+                  <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
+                    {mode === 'login' ? 'Acessar painel' : 'Criar nova conta'}
+                  </h2>
+                  <p className="text-slate-400 mb-8 font-medium">
+                    {mode === 'login'
+                      ? 'Bem-vindo de volta! Insira suas credenciais abaixo.'
+                      : 'Seja parte da nossa central. Preencha os campos.'}
+                  </p>
+                </div>
 
-              <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em]">
-                <ShieldCheck className="w-3 h-3 text-blue-500" />
-                ACESSO SEGURO E CRIPTOGRAFADO
-              </div>
-            </div>
+                <form onSubmit={handleSubmit} className="space-y-5 anim-fade-up" style={{ animationDelay: '0.2s' }}>
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="text-sm font-semibold text-slate-300">Nome Completo</Label>
+                      <Input
+                        id="fullName"
+                        placeholder="Ex: João da Silva"
+                        value={fullName}
+                        onChange={e => setFullName(e.target.value)}
+                        required
+                        className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-semibold text-slate-300">E-mail Corporativo</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="nome@empresa.com"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required
+                      className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password" className="text-sm font-semibold text-slate-300">Senha</Label>
+                      {mode === 'login' && (
+                        <button type="button" className="text-xs text-blue-400 hover:underline font-bold">Esqueceu a senha?</button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPass ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                        className="h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:ring-blue-500 focus:border-blue-500 rounded-xl pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 font-bold text-lg rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Processando...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <LogIn className="w-5 h-5" />
+                        <span>{mode === 'login' ? 'Entrar Agora' : 'Finalizar Cadastro'}</span>
+                      </div>
+                    )}
+                  </Button>
+                </form>
+
+                <div className="mt-8 pt-8 border-t border-white/5 text-center anim-fade-up" style={{ animationDelay: '0.3s' }}>
+                  <div className="flex flex-col gap-4">
+                    <p className="text-sm font-medium text-slate-500">
+                      {mode === 'login' ? 'Ainda não possui acesso?' : 'Já possui uma conta ativa?'}
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+                      className="w-full h-12 bg-transparent border-white/10 text-white hover:bg-white/5 rounded-xl font-bold"
+                    >
+                      {mode === 'login' ? 'Criar Conta' : 'Voltar para o Login'}
+                    </Button>
+                  </div>
+
+                  <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em]">
+                    <ShieldCheck className="w-3 h-3 text-blue-500" />
+                    ACESSO SEGURO E CRIPTOGRAFADO
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
