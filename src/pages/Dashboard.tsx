@@ -331,10 +331,10 @@ export default function DashboardPage() {
                                   "relative z-20 pointer-events-auto cursor-pointer",
                                   "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                                 ].join(" ")}
-                                onClick={() => openDetails(r)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") openDetails(r);
-                                }}
+                                  onClick={() => {
+                                    console.log("CLICK ROW", r.id);
+                                    openDetails(r);
+                                  }}
                                 aria-label={`Abrir detalhes de ${r.client_name}`}
                               >
                                 {/* grid que replica as colunas */}
