@@ -37,14 +37,7 @@ export async function writeAuditLog(params: WriteAuditParams): Promise<void> {
       new_value: toNullableString(params.newValue),
     };
 
-    // ✅ sem any: tipa o mínimo necessário do client via unknown
-    const sb = supabase as unknown as {
-      from: (table: string) => {
-        insert: (values: AuditInsertRow) => Promise<{ error: { message?: string; code?: string } | null }>;
-      };
-    };
-
-    const { error } = await sb.from("record_audit_logs").insert(payload);
+    const { error } = await (supabase as any).from("record_audit_logs").insert(payload);
 
     if (error) {
       console.error("Audit log insert error:", error);

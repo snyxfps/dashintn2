@@ -6,11 +6,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoginPage } from "@/components/LoginPage";
 import { AppLayout } from "@/components/AppLayout";
-import DashboardPage from "@/pages/DashboardGeral";
+import DashboardGeral from "@/pages/DashboardGeral";
 import AuditoriaPage from "@/pages/Auditoria";
 import { ServicePage } from "@/pages/ServicePage";
 import NotFound from "./pages/NotFound";
-import DashboardGeral from "@/pages/DashboardGeral";
 
 const queryClient = new QueryClient();
 

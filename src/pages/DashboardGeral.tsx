@@ -9,6 +9,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import {
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -20,6 +24,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, CalendarDays } from "lucide-react";
 import { formatDateOnlyBR } from "@/lib/dateOnly";
+import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface OutletContext {
   onMenuClick: () => void;
@@ -84,7 +92,7 @@ export default function DashboardGeral() {
   const markAuditSeen = (value: string | null) => {
     try {
       if (value) localStorage.setItem('lastAuditSeen', value);
-    } catch {}
+    } catch { }
     setHasNewAudit(false);
   };
   const { onMenuClick } = useOutletContext<OutletContext>();
@@ -103,49 +111,61 @@ export default function DashboardGeral() {
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
 
+  // Detalhes do registro
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<ServiceRecord | null>(null);
+
+  const openDetails = (r: ServiceRecord) => {
+    setSelectedRecord(r);
+    setDetailsOpen(true);
+  };
+
   const fetchAll = async () => {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const { data: servicesData, error: servicesErr } = await supabase.from("services").select("id,name");
-    if (servicesErr) {
-      console.error(servicesErr);
+      const { data: servicesData, error: servicesErr } = await supabase.from("services").select("id,name");
+      if (servicesErr) {
+        console.error(servicesErr);
+        return;
+      }
+
+      const serviceMap = new Map<string, string>();
+      (servicesData || []).forEach((s: any) => serviceMap.set(String(s.id), String(s.name)));
+
+      const { data: recs, error: recErr } = await supabase.from("records").select("*").order("created_at", { ascending: false });
+
+      if (recErr) {
+        console.error(recErr);
+        return;
+      }
+
+      const enriched: RecordWithService[] = ((recs as ServiceRecord[]) || []).map((r) => ({
+        ...r,
+        service_name: serviceMap.get(String(r.service_id)) || "—",
+      }));
+
+      // última atualização via auditoria
+      const { data: auditData, error: auditErr } = await (supabase as any)
+        .from("record_audit_logs")
+        .select("created_at")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (auditErr) {
+        console.error(auditErr);
+        setLastAuditAt(null);
+      } else {
+        setLastAuditAt((auditData as any)?.[0]?.created_at ?? null);
+      }
+      setRecords(enriched);
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const serviceMap = new Map<string, string>();
-    (servicesData || []).forEach((s: any) => serviceMap.set(String(s.id), String(s.name)));
-
-    const { data: recs, error: recErr } = await supabase.from("records").select("*").order("created_at", { ascending: false });
-
-    if (recErr) {
-      console.error(recErr);
-      setLoading(false);
-      return;
-    }
-
-    const enriched: RecordWithService[] = ((recs as ServiceRecord[]) || []).map((r) => ({
-      ...r,
-      service_name: serviceMap.get(String(r.service_id)) || "—",
-    }));
-
-    
-
-    // última atualização via auditoria
-    const { data: auditData, error: auditErr } = await supabase
-      .from("record_audit_logs")
-      .select("created_at")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (auditErr) {
-      console.error(auditErr);
-      setLastAuditAt(null);
-    } else {
-      setLastAuditAt((auditData as any)?.[0]?.created_at ?? null);
-    }
-setRecords(enriched);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -176,29 +196,34 @@ setRecords(enriched);
       const ownerTrim = (r.owner || "").trim();
       const okOwner = filterOwner === "ALL" || ownerTrim === filterOwner;
 
-      // filtro por data usando a data "relevante" do registro
       const ev = getEventDateForStatus(r);
       let okDate = true;
 
       if (dateFrom || dateTo) {
-        if (!ev) okDate = false;
-        else {
+        if (!ev) {
+          okDate = false;
+        } else {
           const evDay = startOfDay(ev);
+          const evTime = evDay.getTime();
 
-          if (dateFrom && evDay.getTime() < dateFrom.getTime()) okDate = false;
-
-          if (dateTo) {
-            // inclusive: <= dateTo (fazendo intervalo [from, to+1d) )
-            const endExclusive = new Date(dateTo);
-            endExclusive.setDate(endExclusive.getDate() + 1);
-            if (evDay.getTime() >= endExclusive.getTime()) okDate = false;
-          }
+          if (dateFrom && evTime < dateFrom.getTime()) okDate = false;
+          if (dateTo && evTime > dateTo.getTime()) okDate = false;
         }
       }
 
       return okService && okStatus && okOwner && okDate;
     });
   }, [records, filterService, filterStatus, filterOwner, dateFrom, dateTo]);
+
+  // Check for new audits
+  useEffect(() => {
+    if (lastAuditAt) {
+      const lastSeen = localStorage.getItem('lastAuditSeen');
+      if (lastSeen !== lastAuditAt) {
+        setHasNewAudit(true);
+      }
+    }
+  }, [lastAuditAt]);
 
   // ============
   // GRÁFICO 1: Distribuição por status
@@ -266,8 +291,21 @@ setRecords(enriched);
         subtitle="3 gráficos essenciais + lista"
         onMenuClick={onMenuClick}
         actions={
-          <div className="text-xs text-muted-foreground whitespace-nowrap">
-            Atualizado em: {lastAuditAt ? new Date(lastAuditAt).toLocaleDateString("pt-BR") : "—"}
+          <div className="flex items-center gap-3">
+            {hasNewAudit && (
+              <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" title="Novas atualizações disponíveis" />
+            )}
+            <div className="text-xs text-muted-foreground whitespace-nowrap">
+              Atualizado em: {lastAuditAt ? new Date(lastAuditAt).toLocaleDateString("pt-BR") : "—"}
+            </div>
+            {hasNewAudit && (
+              <button
+                onClick={() => markAuditSeen(lastAuditAt)}
+                className="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary px-2 py-0.5 rounded transition-colors"
+              >
+                Marcar como lido
+              </button>
+            )}
           </div>
         }
       />
@@ -360,100 +398,160 @@ setRecords(enriched);
             </div>
 
             {/* 3 gráficos */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {/* 1) Distribuição por status */}
-              <div className="corp-card p-5">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-foreground">Distribuição por status</h3>
-                  <div className="text-xs text-muted-foreground">Quantidade no recorte (inclui filtro de data)</div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 1) Composição de Status (Donut Chart) */}
+              <div className="corp-card p-6 flex flex-col h-[400px]">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-foreground">Composição de Status</h3>
+                  <p className="text-xs text-muted-foreground">Visão percentual do que está em cada etapa agora.</p>
                 </div>
 
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={statusDist} layout="vertical" barSize={14}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} width={140} />
-                    <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                <div className="flex-1 min-h-0 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusDist.filter(d => d.count > 0)}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={65}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="count"
+                        animationDuration={800}
+                      >
+                        {statusDist.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        iconType="circle"
+                        formatter={(value) => <span className="text-xs font-medium text-muted-foreground lowercase first-letter:uppercase">{value}</span>}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center Text */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-10">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-foreground">{filtered.length}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2) Tendência de Entregas (Throughput) */}
+              <div className="corp-card p-6 h-[400px]">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-foreground">Volume de Conclusão</h3>
+                  <p className="text-xs text-muted-foreground">Evolução de entregas finalizadas x devolvidas nas últimas semanas.</p>
+                </div>
+
+                <ResponsiveContainer width="100%" height="80%">
+                  <AreaChart data={throughputWeekly}>
+                    <defs>
+                      <linearGradient id="colorFinalizado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={STATUS_COLORS.FINALIZADO} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={STATUS_COLORS.FINALIZADO} stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorDevolvido" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={STATUS_COLORS.DEVOLVIDO} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={STATUS_COLORS.DEVOLVIDO} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis
+                      dataKey="week"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      allowDecimals={false}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Legend iconType="rect" />
+                    <Area
+                      type="monotone"
+                      dataKey="FINALIZADO"
+                      name="Finalizados"
+                      stroke={STATUS_COLORS.FINALIZADO}
+                      fillOpacity={1}
+                      fill="url(#colorFinalizado)"
+                      strokeWidth={3}
+                      animationDuration={1000}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="DEVOLVIDO"
+                      name="Devolvidos"
+                      stroke={STATUS_COLORS.DEVOLVIDO}
+                      fillOpacity={1}
+                      fill="url(#colorDevolvido)"
+                      strokeWidth={3}
+                      animationDuration={1000}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* 3) Análise de Aging (Saúde do Fluxo) */}
+              <div className="corp-card p-6 xl:col-span-2">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-foreground">Tempo de Permanência (Aging)</h3>
+                  <p className="text-xs text-muted-foreground">Há quanto tempo os cards ativos estão parados. Cards acima de 25 dias exigem atenção.</p>
+                </div>
+
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={agingBuckets} barSize={40}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+                    <XAxis
+                      dataKey="bucket"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fontWeight: 500, fill: "hsl(var(--foreground))" }}
+                      label={{ value: 'Dias decorridos', position: 'insideBottom', offset: -5, fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      allowDecimals={false}
+                    />
+                    <RechartsTooltip
+                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
                     <Bar
                       dataKey="count"
-                      radius={[0, 4, 4, 0]}
-                      animationDuration={500}
-                      animationEasing="ease-out"
+                      name="Cards Ativos"
+                      radius={[8, 8, 0, 0]}
+                      animationDuration={800}
                     >
-                      {statusDist.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
+                      {agingBuckets.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            index === 0 ? '#10b981' :
+                              index === 1 ? '#3b82f6' :
+                                index === 2 ? '#f59e0b' : '#ef4444'
+                          }
+                        />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-
-              {/* 2) Throughput */}
-              <div className="corp-card p-5">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-foreground">Throughput (por semana)</h3>
-                  <div className="text-xs text-muted-foreground">Finalizado x Cancelado x Devolvido (últimas 12 semanas)</div>
-                </div>
-
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={throughputWeekly} barSize={18}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
-                    <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar
-                      dataKey="FINALIZADO"
-                      stackId="a"
-                      fill={STATUS_COLORS.FINALIZADO}
-                      radius={[4, 4, 0, 0]}
-                      animationDuration={500}
-                      animationEasing="ease-out"
-                    />
-                    <Bar
-                      dataKey="CANCELADO"
-                      stackId="a"
-                      fill={STATUS_COLORS.CANCELADO}
-                      animationDuration={500}
-                      animationEasing="ease-out"
-                    />
-                    <Bar
-                      dataKey="DEVOLVIDO"
-                      stackId="a"
-                      fill={STATUS_COLORS.DEVOLVIDO}
-                      animationDuration={500}
-                      animationEasing="ease-out"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* 3) Aging */}
-              <div className="corp-card p-5 xl:col-span-2">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-foreground">Aging (abertos)</h3>
-                  <div className="text-xs text-muted-foreground">0–15 / 15–25 / 25–45 / 45+</div>
-                </div>
-
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={agingBuckets} barSize={22}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-                    <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
-                    <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-                    <Bar
-                      dataKey="count"
-                      name="Cards"
-                      fill={STATUS_COLORS.ANDAMENTO}
-                      radius={[6, 6, 0, 0]}
-                      animationDuration={500}
-                      animationEasing="ease-out"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
             </div>
-
             {/* lista */}
             <div className="corp-card overflow-hidden anim-fade-up">
               <div className="px-5 py-4 border-b border-border">
@@ -474,7 +572,11 @@ setRecords(enriched);
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filtered.slice(0, 50).map((r) => (
-                      <tr key={r.id} className="table-row-hover">
+                      <tr
+                        key={r.id}
+                        className="table-row-hover cursor-pointer"
+                        onClick={() => openDetails(r)}
+                      >
                         <td className="px-5 py-3 text-xs text-muted-foreground">{r.service_name}</td>
                         <td className="px-3 py-3 font-medium text-foreground">{r.client_name}</td>
                         <td className="px-3 py-3">
@@ -511,6 +613,32 @@ setRecords(enriched);
           </>
         )}
       </div>
+
+      <ServiceRecordDetailsSheet
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        record={selectedRecord}
+        isAdmin={isAdmin}
+        onEdit={(r) => {
+          const pathMap: Record<string, string> = {
+            'SMP': '/smp',
+            'Multicadastro': '/multicadastro',
+            'RC-V': '/rcv',
+            'Tecnologia Logística': '/tecnologia-logistica',
+            'Tecnologia Risco': '/tecnologia-risco'
+          };
+          const svcName = (r as any).service_name || (selectedRecord as any)?.service_name;
+          const path = pathMap[svcName];
+          if (path) {
+            navigate(path);
+          } else {
+            toast.error("Serviço não identificado para edição.");
+          }
+        }}
+        onAskDelete={() => {
+          toast.info("A exclusão deve ser feita na página específica do serviço.");
+        }}
+      />
     </div>
   );
 }
