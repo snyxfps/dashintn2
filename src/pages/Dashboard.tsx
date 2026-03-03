@@ -320,39 +320,24 @@ export default function DashboardPage() {
                         const svc = services.find((s) => s.id === r.service_id);
 
                         return (
-                          <tr key={r.id} className="table-row-hover relative">
-  {/* ✅ botão invisível cobrindo a linha inteira */}
-  <td className="px-5 py-3 relative">
-    <button
-      type="button"
-      className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md"
-      aria-label={`Abrir detalhes de ${r.client_name}`}
-      onClick={() => openDetails(r)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") openDetails(r);
-      }}
-    />
-    <div className="relative z-10 font-medium text-foreground">
-      {r.client_name}
-    </div>
+                          <tr
+  key={r.id}
+  className="table-row-hover cursor-pointer"
+  role="button"
+  tabIndex={0}
+  onClick={() => openDetails(r)}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" || e.key === " ") openDetails(r);
+  }}
+>
+  <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
+  <td className="px-3 py-3 text-muted-foreground text-xs">{svc?.name}</td>
+  <td className="px-3 py-3">
+    <StatusBadge status={r.status} />
   </td>
-
-  <td className="px-3 py-3 text-muted-foreground text-xs relative">
-    <div className="relative z-10">{svc?.name}</div>
-  </td>
-
-  <td className="px-3 py-3 relative">
-    <div className="relative z-10">
-      <StatusBadge status={r.status} />
-    </div>
-  </td>
-
-  <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell relative">
-    <div className="relative z-10">{r.owner}</div>
-  </td>
-
-  <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell relative">
-    <div className="relative z-10">{formatDateOnlyBR(r.start_date)}</div>
+  <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner}</td>
+  <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
+    {formatDateOnlyBR(r.start_date)}
   </td>
 </tr>
                         );
