@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { ServiceRecord, Service, RecordStatus } from "@/types";
-import { STATUS_CONFIG } from "@/types";
+import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG } from "@/types";
 import { useLastUpdate } from "@/pages/dashboard/hooks/useLastUpdate";
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -78,14 +77,23 @@ export default function DashboardPage() {
     setDetailsOpen(true);
   };
 
+  const closeDetails = () => {
+    setDetailsOpen(false);
+    setDetailsRecord(null);
+  };
+
   const { data: lastUpdate } = useLastUpdate();
 
   const fetchData = async () => {
     setLoading(true);
-    const [{ data: recs }, { data: svcs }] = await Promise.all([
+    const [{ data: recs, error: recErr }, { data: svcs, error: svcErr }] = await Promise.all([
       supabase.from("records").select("*").order("created_at", { ascending: false }),
       supabase.from("services").select("*"),
     ]);
+
+    if (recErr) console.error("records fetch error:", recErr);
+    if (svcErr) console.error("services fetch error:", svcErr);
+
     setRecords((recs as ServiceRecord[]) || []);
     setServices((svcs as Service[]) || []);
     setLoading(false);
@@ -140,6 +148,7 @@ export default function DashboardPage() {
   const statusChartData = useMemo(
     () =>
       (["NOVO", "REUNIAO", "ANDAMENTO", "FINALIZADO", "CANCELADO", "DEVOLVIDO"] as RecordStatus[]).map((s) => ({
+        name: STATUS_CONFIG[s].label.replace(" ", "\n"),
         label: STATUS_CONFIG[s].label,
         count: filtered.filter((r) => r.status === s).length,
         color: STATUS_COLORS[s],
@@ -224,8 +233,8 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Pie + Top */}
               <div className="space-y-4">
+                {/* Pie - por serviço */}
                 <div className="corp-card p-5">
                   <h3 className="text-sm font-semibold text-foreground mb-3">Por Serviço</h3>
                   <ResponsiveContainer width="100%" height={140}>
@@ -246,7 +255,6 @@ export default function DashboardPage() {
                       <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
-
                   <div className="space-y-1 mt-2">
                     {serviceChartData.map((item, i) => (
                       <div key={item.name} className="flex items-center justify-between text-xs">
@@ -260,6 +268,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Top Serviço */}
                 {topService?.name ? (
                   <div
                     className="corp-card p-4"
@@ -276,67 +285,89 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* ✅ Registros Recentes (clicável 100%) */}
+            {/* Recent Records (LISTA CLICÁVEL) */}
             <div className="corp-card overflow-hidden relative z-10">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                <h3 className="text-sm font-semibold text-foreground">Registros Recentes</h3>
-                <span className="text-xs text-muted-foreground">{filtered.length} total</span>
+                <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
+                <span className="text-xs text-muted-foreground">Mostrando os últimos registros do filtro.</span>
               </div>
 
-              {/* “Header” da lista em grid (parece tabela) */}
-              <div className="hidden sm:grid grid-cols-3 md:grid-cols-5 gap-3 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground">
-                <div>Cliente</div>
-                <div>Serviço</div>
-                <div>Status</div>
-                <div className="hidden sm:block">Responsável</div>
-                <div className="hidden md:block">Data início</div>
-              </div>
+              <div className="overflow-x-auto relative z-10">
+                <table className="w-full text-sm relative z-10">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Cliente</th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Serviço</th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">
+                        Responsável
+                      </th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">
+                        Início
+                      </th>
+                    </tr>
+                  </thead>
 
-              <div className="divide-y divide-border">
-                {recentRecords.length === 0 ? (
-                  <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                    {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
-                  </div>
-                ) : (
-                  recentRecords.map((r) => {
-                    const svc = services.find((s) => s.id === r.service_id);
+                  <tbody className="divide-y divide-border relative z-10">
+                    {recentRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                          {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
+                        </td>
+                      </tr>
+                    ) : (
+                      recentRecords.map((r) => {
+                        const svc = services.find((s) => s.id === r.service_id);
 
-                    return (
-                      <button
-                        key={r.id}
-                        type="button"
-                        className="w-full text-left px-5 py-3 table-row-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                        onClick={() => openDetails(r)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") openDetails(r);
-                        }}
-                      >
-                        <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
-                          <div className="font-medium text-foreground truncate">{r.client_name}</div>
-                          <div className="text-muted-foreground text-xs truncate">{svc?.name ?? "—"}</div>
-                          <div>
-                            <StatusBadge status={r.status} />
-                          </div>
-                          <div className="hidden sm:block text-muted-foreground text-xs truncate">{r.owner || "—"}</div>
-                          <div className="hidden md:block text-muted-foreground text-xs">{formatDateOnlyBR(r.start_date)}</div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
+                        return (
+                          <tr key={r.id} className="table-row-hover">
+                            {/* 1 célula só, e dentro um botão que cobre a linha inteira */}
+                            <td colSpan={5} className="p-0">
+                              <button
+                                type="button"
+                                className={[
+                                  "block w-full text-left",
+                                  "px-5 py-3",
+                                  "relative z-20 pointer-events-auto cursor-pointer",
+                                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                ].join(" ")}
+                                onClick={() => openDetails(r)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") openDetails(r);
+                                }}
+                                aria-label={`Abrir detalhes de ${r.client_name}`}
+                              >
+                                {/* grid que replica as colunas */}
+                                <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
+                                  <div className="font-medium text-foreground truncate">{r.client_name}</div>
+                                  <div className="text-muted-foreground text-xs truncate">{svc?.name ?? "—"}</div>
+                                  <div>
+                                    <StatusBadge status={r.status} />
+                                  </div>
+                                  <div className="hidden sm:block text-muted-foreground text-xs truncate">{r.owner || "—"}</div>
+                                  <div className="hidden md:block text-muted-foreground text-xs">{formatDateOnlyBR(r.start_date)}</div>
+                                </div>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </>
         )}
       </div>
 
-      {/* ✅ Sheet só existe quando aberto (evita overlay invisível bloqueando clique) */}
+      {/* ✅ Sheet: renderiza SOMENTE quando aberto (evita overlay invisível bloqueando clique) */}
       {detailsOpen ? (
         <ServiceRecordDetailsSheet
           open={detailsOpen}
           onOpenChange={(o) => {
-            setDetailsOpen(o);
-            if (!o) setDetailsRecord(null);
+            if (!o) closeDetails();
+            else setDetailsOpen(o);
           }}
           record={detailsRecord}
           isAdmin={isAdmin}
