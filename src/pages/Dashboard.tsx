@@ -7,6 +7,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { seedData } from "@/lib/seed";
 import { formatDateOnlyBR } from "@/lib/dateOnly";
+import { useAuth } from "@/contexts/AuthContext";
+import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
 import {
   PieChart,
   Pie,
@@ -32,8 +34,33 @@ const STATUS_COLORS: Record<RecordStatus, string> = {
   DEVOLVIDO: "#f97316",
 };
 
+const SERVICE_COLORS = ["#3b82f6", "#6366f1", "#22c55e", "#f97316"];
+
 interface OutletContext {
   onMenuClick: () => void;
+}
+
+function formatDateOnlyFromAny(input: unknown): string | null {
+  if (!input) return null;
+
+  // Se vier como Date
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    const d = String(input.getDate()).padStart(2, "0");
+    const m = String(input.getMonth() + 1).padStart(2, "0");
+    const y = input.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  // Se vier como string (ex: "2026-02-27 15:45:39.457854+00" ou ISO)
+  const s = String(input).trim();
+  if (!s) return null;
+
+  // pega só a parte yyyy-mm-dd se existir
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+
+  const [, yyyy, mm, dd] = m;
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 export default function DashboardPage() {
@@ -43,6 +70,15 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const { isAdmin } = useAuth();
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsRecord, setDetailsRecord] = useState<ServiceRecord | null>(null);
+
+  const openDetails = (r: ServiceRecord) => {
+    setDetailsRecord(r);
+    setDetailsOpen(true);
+  };
 
   const { data: lastUpdate } = useLastUpdate();
 
@@ -94,8 +130,6 @@ export default function DashboardPage() {
     [services, filtered]
   );
 
-  const SERVICE_COLORS = ["#3b82f6", "#6366f1", "#22c55e", "#f97316"];
-
   // Top service
   const topService: (Service & { count: number }) | null = useMemo(() => {
     return services.reduce<(Service & { count: number }) | null>((top, s) => {
@@ -125,6 +159,7 @@ export default function DashboardPage() {
   ];
 
   const recentRecords = filtered.slice(0, 8);
+  const lastUpdateDateOnlyBR = formatDateOnlyFromAny(lastUpdate);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-muted/30 to-background">
@@ -144,13 +179,10 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="text-xs text-red-500">
-        DEBUG lastUpdate: {String(lastUpdate)}
-      </div>
-
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+        {/* ✅ Só data (sem hora) */}
         <div className="text-xs text-muted-foreground -mt-2">
-          Atualizado em: {lastUpdate ? new Date(lastUpdate).toLocaleString("pt-BR") : "—"}
+          Atualizado em: {lastUpdateDateOnlyBR ?? "—"}
         </div>
 
         {loading ? (
@@ -224,10 +256,7 @@ export default function DashboardPage() {
                     {serviceChartData.map((item, i) => (
                       <div key={item.name} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }}
-                          />
+                          <div className="w-2 h-2 rounded-full" style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }} />
                           <span className="text-muted-foreground truncate max-w-[100px]">{item.name}</span>
                         </div>
                         <span className="font-semibold text-foreground">{item.value}</span>
@@ -285,7 +314,16 @@ export default function DashboardPage() {
                       recentRecords.map((r) => {
                         const svc = services.find((s) => s.id === r.service_id);
                         return (
-                          <tr key={r.id} className="table-row-hover">
+                          <tr
+                            key={r.id}
+                            className="table-row-hover cursor-pointer"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openDetails(r)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") openDetails(r);
+                            }}
+                          >
                             <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
                             <td className="px-3 py-3 text-muted-foreground text-xs">{svc?.name}</td>
                             <td className="px-3 py-3">
@@ -306,6 +344,16 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* ✅ Abre detalhes ao clicar na linha */}
+      <ServiceRecordDetailsSheet
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        record={detailsRecord}
+        isAdmin={false}
+        onEdit={() => {}}
+        onAskDelete={() => {}}
+      />
     </div>
   );
 }
