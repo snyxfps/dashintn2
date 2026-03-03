@@ -70,18 +70,16 @@ function formatDateOnlyFromAny(input: unknown): string | null {
 
 export default function DashboardPage() {
   const { onMenuClick } = useOutletContext<OutletContext>();
-
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const { isAdmin } = useAuth();
 
-  // ✅ pega o tipo real do id do ServiceRecord (string OU number, o que for no seu projeto)
+  // ✅ expand/collapse (tipado para aceitar string/number conforme seu id real)
   const [expandedId, setExpandedId] = useState<ServiceRecord["id"] | null>(null);
   const toggleRow = (id: ServiceRecord["id"]) => setExpandedId((prev) => (prev === id ? null : id));
-
-  const { isAdmin } = useAuth();
 
   // Sheet
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -130,7 +128,13 @@ export default function DashboardPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return records;
-    return records.filter((r) => (r.client_name || "").toLowerCase().includes(q));
+
+    // ✅ tolerante: tenta client_name OU cliente
+    return records.filter((r) => {
+      const rr = r as any;
+      const name = (r.client_name ?? rr.cliente ?? rr.client ?? "").toString().toLowerCase();
+      return name.includes(q);
+    });
   }, [records, search]);
 
   // KPIs
@@ -165,7 +169,6 @@ export default function DashboardPage() {
   const statusChartData = useMemo(
     () =>
       (["NOVO", "REUNIAO", "ANDAMENTO", "FINALIZADO", "CANCELADO", "DEVOLVIDO"] as RecordStatus[]).map((s) => ({
-        name: STATUS_CONFIG[s].label.replace(" ", "\n"),
         label: STATUS_CONFIG[s].label,
         count: filtered.filter((r) => r.status === s).length,
         color: STATUS_COLORS[s],
@@ -184,14 +187,31 @@ export default function DashboardPage() {
   const recentRecords = filtered.slice(0, 8);
   const lastUpdateDateOnlyBR = formatDateOnlyFromAny(lastUpdate);
 
-  // helpers (bem tolerantes)
-  const getServiceName = (serviceId: string | null) => services.find((s) => s.id === serviceId)?.name ?? "—";
-  const getOwner = (r: ServiceRecord) =>
-    (r as any).owner_name ?? (r as any).owner ?? (r as any).responsible ?? (r as any).assigned_to ?? "—";
-  const getStartDate = (r: ServiceRecord) =>
-    formatDateOnlyFromAny((r as any).start_date ?? (r as any).date_start ?? (r as any).data_inicio ?? r.created_at) ?? "—";
-  const getNotes = (r: ServiceRecord) =>
-    (r as any).notes ?? (r as any).observacoes ?? (r as any).obs ?? (r as any).description ?? "—";
+  // ✅ normalizadores (para não depender do nome exato das colunas)
+  const getCliente = (r: ServiceRecord) => {
+    const rr = r as any;
+    return (r.client_name ?? rr.cliente ?? rr.client ?? "—").toString();
+  };
+
+  const getServiceName = (serviceId: string | null) =>
+    services.find((s) => s.id === serviceId)?.name ?? "—";
+
+  const getOwner = (r: ServiceRecord) => {
+    const rr = r as any;
+    return (rr.owner ?? rr.responsavel ?? rr.responsible ?? rr.owner_name ?? "—").toString();
+  };
+
+  const getInicio = (r: ServiceRecord) => {
+    const rr = r as any;
+    return (
+      formatDateOnlyFromAny(rr.data_inicio ?? rr.start_date ?? rr.inicio ?? r.created_at) ?? "—"
+    );
+  };
+
+  const getObs = (r: ServiceRecord) => {
+    const rr = r as any;
+    return (rr.observacoes ?? rr.obs ?? rr.notes ?? rr.descricao ?? "—").toString();
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-muted/30 to-background">
@@ -300,7 +320,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* LISTA CLICÁVEL (à prova de overlay) */}
+            {/* LISTA CLICÁVEL */}
             <div className="corp-card overflow-hidden relative z-10">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
@@ -326,11 +346,9 @@ export default function DashboardPage() {
                   <tbody>
                     {recentRecords.map((record) => {
                       const isOpen = expandedId === record.id;
-
                       return (
                         <React.Fragment key={String(record.id)}>
                           <tr className="hover:bg-muted/40 transition-colors">
-                            {/* ✅ botão dentro da célula = clique sempre funciona */}
                             <td className="px-5 py-3 font-medium text-foreground">
                               <button
                                 type="button"
@@ -342,7 +360,7 @@ export default function DashboardPage() {
                                 ) : (
                                   <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                                 )}
-                                <span className="truncate">{record.client_name ?? "—"}</span>
+                                <span className="truncate">{getCliente(record)}</span>
                               </button>
                             </td>
 
@@ -351,52 +369,32 @@ export default function DashboardPage() {
                               {STATUS_CONFIG[record.status]?.label ?? record.status}
                             </td>
                             <td className="px-3 py-3 hidden sm:table-cell text-foreground/80">{getOwner(record)}</td>
-                            <td className="px-3 py-3 hidden md:table-cell text-foreground/80">{getStartDate(record)}</td>
+                            <td className="px-3 py-3 hidden md:table-cell text-foreground/80">{getInicio(record)}</td>
                           </tr>
 
                           {isOpen && (
                             <tr className="bg-muted/30">
                               <td colSpan={5} className="px-5 py-4">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                <div className="space-y-2 text-sm">
                                   <div>
-                                    <div className="text-xs text-muted-foreground">Observações</div>
-                                    <div className="font-medium text-foreground break-words">{getNotes(record)}</div>
+                                    <strong>Observações:</strong> {getObs(record)}
                                   </div>
-
                                   <div>
-                                    <div className="text-xs text-muted-foreground">Criado em</div>
-                                    <div className="font-medium text-foreground">
-                                      {formatDateOnlyFromAny(record.created_at) ?? "—"}
-                                    </div>
+                                    <strong>Início:</strong> {getInicio(record)}
                                   </div>
-
                                   <div>
-                                    <div className="text-xs text-muted-foreground">Responsável</div>
-                                    <div className="font-medium text-foreground">{getOwner(record)}</div>
+                                    <strong>Cadastro:</strong> {formatDateOnlyFromAny(record.created_at) ?? "—"}
+                                  </div>
+                                  <div>
+                                    <strong>Responsável:</strong> {getOwner(record)}
                                   </div>
                                 </div>
 
-                                <div className="mt-4 flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openDetails(record);
-                                    }}
-                                  >
-                                    Abrir painel completo
+                                <div className="mt-4 flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => openDetails(record)}>
+                                    Abrir detalhes
                                   </Button>
-
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedId(null);
-                                    }}
-                                    className="text-muted-foreground"
-                                  >
+                                  <Button size="sm" variant="ghost" onClick={() => setExpandedId(null)}>
                                     Fechar
                                   </Button>
                                 </div>
@@ -422,6 +420,7 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Sheet */}
       {detailsOpen ? (
         <ServiceRecordDetailsSheet
           open={detailsOpen}
