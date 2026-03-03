@@ -322,20 +322,25 @@ export default function DashboardPage() {
                         return (
                           <tr
   key={r.id}
-  className="table-row-hover cursor-pointer"
-  role="button"
-  tabIndex={0}
-  onClick={() => openDetails(r)}
-  onKeyDown={(e) => {
-    if (e.key === "Enter" || e.key === " ") openDetails(r);
+  className="table-row-hover cursor-pointer relative"
+  onClick={(e) => {
+    e.stopPropagation();
+    openDetails(r);
   }}
+  style={{ pointerEvents: "auto" }}
 >
-  <td className="px-5 py-3 font-medium text-foreground">{r.client_name}</td>
-  <td className="px-3 py-3 text-muted-foreground text-xs">{svc?.name}</td>
+  <td className="px-5 py-3 font-medium text-foreground">
+    {r.client_name}
+  </td>
+  <td className="px-3 py-3 text-muted-foreground text-xs">
+    {svc?.name}
+  </td>
   <td className="px-3 py-3">
     <StatusBadge status={r.status} />
   </td>
-  <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">{r.owner}</td>
+  <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">
+    {r.owner}
+  </td>
   <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
     {formatDateOnlyBR(r.start_date)}
   </td>
