@@ -260,7 +260,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="corp-card overflow-hidden">
+            <div className="corp-card overflow-hidden relative z-10">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros Recentes</h3>
                 <span className="text-xs text-muted-foreground">{filtered.length} total</span>
@@ -290,11 +290,11 @@ export default function DashboardPage() {
                         const svc = services.find((s) => s.id === r.service_id);
 
                         return (
-                          <tr key={r.id} className="table-row-hover">
+                          <tr key={r.id} className="table-row-hover cursor-pointer" onClick={() => openDetails (r)}>
                             <td colSpan={5} className="p-0">
                               <button
                                 type="button"
-                                className="w-full text-left px-5 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                className="w-full text-left px-5 py-3 relative z-20 pointer-events-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                 onClick={() => openDetails(r)}
                               >
                                 <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
