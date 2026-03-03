@@ -4,9 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ServiceRecord, Service, RecordStatus, STATUS_CONFIG } from "@/types";
 import { useLastUpdate } from "@/pages/dashboard/hooks/useLastUpdate";
 import { AppHeader } from "@/components/AppHeader";
-import { StatusBadge } from "@/components/StatusBadge";
 import { seedData } from "@/lib/seed";
-import { formatDateOnlyBR } from "@/lib/dateOnly";
 import { useAuth } from "@/contexts/AuthContext";
 import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
 import {
@@ -21,7 +19,17 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { Users, CheckCircle, XCircle, RotateCcw, Activity, Trophy, RefreshCw } from "lucide-react";
+import {
+  Users,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  Activity,
+  Trophy,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -62,13 +70,20 @@ function formatDateOnlyFromAny(input: unknown): string | null {
 
 export default function DashboardPage() {
   const { onMenuClick } = useOutletContext<OutletContext>();
+
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+
+  // ✅ expansão da linha
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const toggleRow = (id: string) => setExpandedId((prev) => (prev === id ? null : id));
+
   const { isAdmin } = useAuth();
 
+  // Sheet (mantido — opcional)
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsRecord, setDetailsRecord] = useState<ServiceRecord | null>(null);
 
@@ -86,6 +101,7 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     setLoading(true);
+
     const [{ data: recs, error: recErr }, { data: svcs, error: svcErr }] = await Promise.all([
       supabase.from("records").select("*").order("created_at", { ascending: false }),
       supabase.from("services").select("*"),
@@ -111,10 +127,12 @@ export default function DashboardPage() {
     toast.success("Dados de exemplo carregados!");
   };
 
-  const filtered = useMemo(
-    () => records.filter((r) => !search || r.client_name.toLowerCase().includes(search.toLowerCase())),
-    [records, search]
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return records;
+
+    return records.filter((r) => (r.client_name || "").toLowerCase().includes(q));
+  }, [records, search]);
 
   // KPIs
   const activeStatuses: RecordStatus[] = ["NOVO", "REUNIAO", "ANDAMENTO"];
@@ -166,6 +184,13 @@ export default function DashboardPage() {
 
   const recentRecords = filtered.slice(0, 8);
   const lastUpdateDateOnlyBR = formatDateOnlyFromAny(lastUpdate);
+
+  // helpers robustos (evita “undefined explode”)
+  const getServiceName = (serviceId: string | null) => services.find((s) => s.id === serviceId)?.name ?? "—";
+  const getOwner = (r: ServiceRecord) =>
+    (r as any).owner_name ?? (r as any).owner ?? (r as any).responsible ?? (r as any).assigned_to ?? "—";
+  const getStartDate = (r: ServiceRecord) =>
+    formatDateOnlyFromAny((r as any).start_date ?? (r as any).date_start ?? (r as any).data_inicio ?? r.created_at) ?? "—";
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-muted/30 to-background">
@@ -255,11 +280,15 @@ export default function DashboardPage() {
                       <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
+
                   <div className="space-y-1 mt-2">
                     {serviceChartData.map((item, i) => (
                       <div key={item.name} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full" style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }} />
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ background: SERVICE_COLORS[i % SERVICE_COLORS.length] }}
+                          />
                           <span className="text-muted-foreground truncate max-w-[100px]">{item.name}</span>
                         </div>
                         <span className="font-semibold text-foreground">{item.value}</span>
@@ -285,7 +314,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Recent Records (LISTA CLICÁVEL) */}
+            {/* Recent Records (LISTA CLICÁVEL COM EXPANSÃO) */}
             <div className="corp-card overflow-hidden relative z-10">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
@@ -308,51 +337,109 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-border relative z-10">
+                  <tbody>
+                    {recentRecords.map((record) => {
+                      const isOpen = expandedId === record.id;
+
+                      return (
+                        <React.Fragment key={record.id}>
+                          {/* Linha principal */}
+                          <tr
+                            onClick={() => toggleRow(record.id)}
+                            className="cursor-pointer hover:bg-muted/40 transition-colors"
+                            role="button"
+                            aria-expanded={isOpen}
+                          >
+                            <td className="px-5 py-3 font-medium text-foreground">
+                              <div className="flex items-center gap-2">
+                                {isOpen ? (
+                                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                )}
+                                <span className="truncate">{record.client_name ?? "—"}</span>
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-3 text-foreground/90">{getServiceName(record.service_id)}</td>
+
+                            <td className="px-3 py-3">
+                              {/* Se você quiser o badge, pode trocar por <StatusBadge status={record.status} /> */}
+                              <span className="text-foreground/90">{STATUS_CONFIG[record.status]?.label ?? record.status}</span>
+                            </td>
+
+                            <td className="px-3 py-3 hidden sm:table-cell text-foreground/80">{getOwner(record)}</td>
+
+                            <td className="px-3 py-3 hidden md:table-cell text-foreground/80">{getStartDate(record)}</td>
+                          </tr>
+
+                          {/* Linha expandida */}
+                          {isOpen && (
+                            <tr className="bg-muted/30">
+                              <td colSpan={5} className="px-5 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Cliente</div>
+                                    <div className="font-medium text-foreground">{record.client_name ?? "—"}</div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Serviço</div>
+                                    <div className="font-medium text-foreground">{getServiceName(record.service_id)}</div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Status</div>
+                                    <div className="font-medium text-foreground">
+                                      {STATUS_CONFIG[record.status]?.label ?? record.status}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Responsável</div>
+                                    <div className="font-medium text-foreground">{getOwner(record)}</div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Início</div>
+                                    <div className="font-medium text-foreground">{getStartDate(record)}</div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-xs text-muted-foreground">Criado em</div>
+                                    <div className="font-medium text-foreground">
+                                      {formatDateOnlyFromAny(record.created_at) ?? "—"}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 flex items-center gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => openDetails(record)}>
+                                    Abrir painel completo
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setExpandedId(null)}
+                                    className="text-muted-foreground"
+                                  >
+                                    Fechar
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+
                     {recentRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                          {search ? "Nenhum cliente encontrado." : "Nenhum registro. Carregue os dados de demonstração."}
+                        <td colSpan={5} className="px-5 py-6 text-sm text-muted-foreground">
+                          Nenhum registro encontrado com esse filtro.
                         </td>
                       </tr>
-                    ) : (
-                      recentRecords.map((r) => {
-                        const svc = services.find((s) => s.id === r.service_id);
-
-                        return (
-                          <tr key={r.id} className="table-row-hover">
-                            {/* 1 célula só, e dentro um botão que cobre a linha inteira */}
-                            <td colSpan={5} className="p-0">
-                              <button
-                                type="button"
-                                className={[
-                                  "block w-full text-left",
-                                  "px-5 py-3",
-                                  "relative z-20 pointer-events-auto cursor-pointer",
-                                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                                ].join(" ")}
-                                  onClick={() => {
-                                    console.log("CLICK ROW", r.id);
-                                    openDetails(r);
-                                  }}
-                                aria-label={`Abrir detalhes de ${r.client_name}`}
-                              >
-                                {/* grid que replica as colunas */}
-                                <div className="grid grid-cols-3 md:grid-cols-5 items-center gap-3">
-                                  <div className="font-medium text-foreground truncate">{r.client_name}</div>
-                                  <div className="text-muted-foreground text-xs truncate">{svc?.name ?? "—"}</div>
-                                  <div>
-                                    <StatusBadge status={r.status} />
-                                  </div>
-                                  <div className="hidden sm:block text-muted-foreground text-xs truncate">{r.owner || "—"}</div>
-                                  <div className="hidden md:block text-muted-foreground text-xs">{formatDateOnlyBR(r.start_date)}</div>
-                                </div>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
+                    ) : null}
                   </tbody>
                 </table>
               </div>
