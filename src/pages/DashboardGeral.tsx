@@ -22,12 +22,28 @@ import {
   Cell,
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, CalendarDays } from "lucide-react";
+import { Filter, CalendarDays, Search, PieChart as LucidePieChart } from "lucide-react";
 import { formatDateOnlyBR } from "@/lib/dateOnly";
 import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { y: 0, opacity: 1 }
+};
 
 interface OutletContext {
   onMenuClick: () => void;
@@ -310,22 +326,29 @@ export default function DashboardGeral() {
         }
       />
 
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+      <motion.div
+        className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
           </div>
         ) : (
           <>
-            <ServiceKPIs records={filtered as any} loading={loading} />
+            <motion.div variants={itemVariants}>
+              <ServiceKPIs records={filtered as any} loading={loading} />
+            </motion.div>
 
             {/* filtros */}
-            <div className="corp-card p-4">
+            <motion.div variants={itemVariants} className="glass-card p-4 rounded-2xl">
               <div className="flex flex-wrap items-center gap-3">
                 <Filter className="w-4 h-4 text-muted-foreground" />
 
                 <Select value={filterService} onValueChange={setFilterService}>
-                  <SelectTrigger className="h-8 w-52 text-xs">
+                  <SelectTrigger className="h-8 w-52 text-xs bg-background/50 backdrop-blur-sm border-border/50">
                     <SelectValue placeholder="Serviço" />
                   </SelectTrigger>
                   <SelectContent>
@@ -339,7 +362,7 @@ export default function DashboardGeral() {
                 </Select>
 
                 <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-                  <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectTrigger className="h-8 w-44 text-xs bg-background/50 backdrop-blur-sm border-border/50">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -353,7 +376,7 @@ export default function DashboardGeral() {
                 </Select>
 
                 <Select value={filterOwner} onValueChange={setFilterOwner}>
-                  <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectTrigger className="h-8 w-44 text-xs bg-background/50 backdrop-blur-sm border-border/50">
                     <SelectValue placeholder="Responsável" />
                   </SelectTrigger>
                   <SelectContent>
@@ -368,7 +391,7 @@ export default function DashboardGeral() {
 
                 {/* filtro de data */}
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-md border px-2 h-8">
+                  <div className="flex items-center gap-2 rounded-md border border-border/50 px-2 h-8 bg-background/50 backdrop-blur-sm">
                     <CalendarDays className="w-4 h-4 text-muted-foreground" />
                     <input
                       type="date"
@@ -381,7 +404,7 @@ export default function DashboardGeral() {
 
                   <span className="text-xs text-muted-foreground">até</span>
 
-                  <div className="flex items-center gap-2 rounded-md border px-2 h-8">
+                  <div className="flex items-center gap-2 rounded-md border border-border/50 px-2 h-8 bg-background/50 backdrop-blur-sm">
                     <CalendarDays className="w-4 h-4 text-muted-foreground" />
                     <input
                       type="date"
@@ -395,18 +418,21 @@ export default function DashboardGeral() {
 
                 <div className="ml-auto text-xs text-muted-foreground">{filtered.length} registros</div>
               </div>
-            </div>
+            </motion.div>
 
             {/* 3 gráficos */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* 1) Composição de Status (Donut Chart) */}
-              <div className="corp-card p-6 flex flex-col h-[400px]">
-                <div className="mb-6">
+              <motion.div variants={itemVariants} className="glass-card p-6 flex flex-col h-[400px] rounded-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none transition-transform group-hover:scale-110 duration-700">
+                  <LucidePieChart size={120} />
+                </div>
+                <div className="mb-6 relative z-10">
                   <h3 className="text-lg font-bold text-foreground">Composição de Status</h3>
                   <p className="text-xs text-muted-foreground">Visão percentual do que está em cada etapa agora.</p>
                 </div>
 
-                <div className="flex-1 min-h-0 relative">
+                <div className="flex-1 min-h-0 relative z-10">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -417,35 +443,36 @@ export default function DashboardGeral() {
                         outerRadius={90}
                         paddingAngle={4}
                         dataKey="count"
-                        animationDuration={800}
+                        animationDuration={1200}
+                        animationBegin={200}
                       >
                         {statusDist.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                         ))}
                       </Pie>
                       <RechartsTooltip
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                        contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                       />
                       <Legend
                         verticalAlign="bottom"
                         height={36}
                         iconType="circle"
-                        formatter={(value) => <span className="text-xs font-medium text-muted-foreground lowercase first-letter:uppercase">{value}</span>}
+                        formatter={(value) => <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{value}</span>}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   {/* Center Text */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-10">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-foreground">{filtered.length}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</div>
+                      <div className="text-3xl font-black text-foreground">{filtered.length}</div>
+                      <div className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">Total</div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* 2) Tendência de Entregas (Throughput) */}
-              <div className="corp-card p-6 h-[400px]">
+              <motion.div variants={itemVariants} className="glass-card p-6 h-[400px] rounded-2xl overflow-hidden group">
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-foreground">Volume de Conclusão</h3>
                   <p className="text-xs text-muted-foreground">Evolução de entregas finalizadas x devolvidas nas últimas semanas.</p>
@@ -463,21 +490,21 @@ export default function DashboardGeral() {
                         <stop offset="95%" stopColor={STATUS_COLORS.DEVOLVIDO} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
                     <XAxis
                       dataKey="week"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
                       allowDecimals={false}
                     />
                     <RechartsTooltip
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend iconType="rect" />
                     <Area
@@ -488,7 +515,7 @@ export default function DashboardGeral() {
                       fillOpacity={1}
                       fill="url(#colorFinalizado)"
                       strokeWidth={3}
-                      animationDuration={1000}
+                      animationDuration={1500}
                     />
                     <Area
                       type="monotone"
@@ -498,14 +525,14 @@ export default function DashboardGeral() {
                       fillOpacity={1}
                       fill="url(#colorDevolvido)"
                       strokeWidth={3}
-                      animationDuration={1000}
+                      animationDuration={1500}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              </div>
+              </motion.div>
 
               {/* 3) Análise de Aging (Saúde do Fluxo) */}
-              <div className="corp-card p-6 xl:col-span-2">
+              <motion.div variants={itemVariants} className="glass-card p-6 xl:col-span-2 rounded-2xl overflow-hidden group">
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-foreground">Tempo de Permanência (Aging)</h3>
                   <p className="text-xs text-muted-foreground">Há quanto tempo os cards ativos estão parados. Cards acima de 25 dias exigem atenção.</p>
@@ -513,29 +540,29 @@ export default function DashboardGeral() {
 
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={agingBuckets} barSize={40}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
                     <XAxis
                       dataKey="bucket"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 11, fontWeight: 500, fill: "hsl(var(--foreground))" }}
-                      label={{ value: 'Dias decorridos', position: 'insideBottom', offset: -5, fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      tick={{ fontSize: 11, fontWeight: 700, fill: "hsl(var(--foreground))" }}
+                      label={{ value: 'Dias decorridos', position: 'insideBottom', offset: -5, fontSize: 10, fontWeight: 600, fill: 'hsl(var(--muted-foreground))' }}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
                       allowDecimals={false}
                     />
                     <RechartsTooltip
-                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                     <Bar
                       dataKey="count"
                       name="Cards Ativos"
-                      radius={[8, 8, 0, 0]}
-                      animationDuration={800}
+                      radius={[10, 10, 0, 0]}
+                      animationDuration={1200}
                     >
                       {agingBuckets.map((entry, index) => (
                         <Cell
@@ -545,49 +572,59 @@ export default function DashboardGeral() {
                               index === 1 ? '#3b82f6' :
                                 index === 2 ? '#f59e0b' : '#ef4444'
                           }
+                          fillOpacity={0.8}
                         />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </motion.div>
             </div>
             {/* lista */}
-            <div className="corp-card overflow-hidden anim-fade-up">
-              <div className="px-5 py-4 border-b border-border">
-                <h3 className="text-sm font-semibold text-foreground">Registros (lista)</h3>
-                <div className="text-xs text-muted-foreground">Mostrando os últimos registros do filtro.</div>
+            <motion.div variants={itemVariants} className="glass-card overflow-hidden rounded-2xl shadow-xl">
+              <div className="px-5 py-4 border-b border-border/50 bg-background/30 backdrop-blur-md flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Últimos Registros</h3>
+                  <div className="text-[10px] text-muted-foreground font-bold uppercase mt-0.5">Visão consolidada filtrada</div>
+                </div>
+                <div className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full uppercase tracking-tighter">
+                  {filtered.length} total
+                </div>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Serviço</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Cliente</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3">Status</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden sm:table-cell">Owner</th>
-                      <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-3 hidden md:table-cell">Início</th>
+                    <tr className="border-b border-border/30 bg-muted/20">
+                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-5 py-3">Serviço</th>
+                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3">Cliente</th>
+                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3">Status</th>
+                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3 hidden sm:table-cell">Responsável</th>
+                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3 hidden md:table-cell">Data Início</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/20">
                     {filtered.slice(0, 50).map((r) => (
                       <tr
                         key={r.id}
-                        className="table-row-hover cursor-pointer"
+                        className="group hover:bg-white/50 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
                         onClick={() => openDetails(r)}
                       >
-                        <td className="px-5 py-3 text-xs text-muted-foreground">{r.service_name}</td>
-                        <td className="px-3 py-3 font-medium text-foreground">{r.client_name}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-5 py-4 text-[10px] font-black text-blue-500/70 uppercase group-hover:text-blue-500 transition-colors">
+                          {r.service_name}
+                        </td>
+                        <td className="px-3 py-4">
+                          <div className="font-bold text-foreground group-hover:translate-x-1 transition-transform">{r.client_name}</div>
+                        </td>
+                        <td className="px-3 py-4">
                           <StatusBadge status={r.status} />
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden sm:table-cell">
+                        <td className="px-3 py-4 text-muted-foreground text-xs font-medium hidden sm:table-cell">
                           {(r.owner || "").trim() || "-"}
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground text-xs hidden md:table-cell">
-                          <div className="flex items-center gap-1.5">
-                            <CalendarDays className="w-3 h-3" />
+                        <td className="px-3 py-4 text-muted-foreground text-xs font-medium hidden md:table-cell">
+                          <div className="flex items-center gap-2">
+                            <CalendarDays className="w-3.5 h-3.5 opacity-40" />
                             {formatDateOnlyBR(r.start_date)}
                           </div>
                         </td>
@@ -596,12 +633,15 @@ export default function DashboardGeral() {
 
                     {filtered.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-5 py-14 text-center">
-                          <div className="text-sm font-medium text-foreground">
-                            Nenhum registro corresponde aos filtros selecionados
+                        <td colSpan={5} className="px-5 py-24 text-center">
+                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/20 mb-4">
+                            <Search className="w-8 h-8 text-muted-foreground/30" />
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Tente ampliar o período, remover filtros ou selecionar outro serviço.
+                          <div className="text-sm font-black text-foreground uppercase tracking-widest">
+                            Nenhum registro encontrado
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2 max-w-[280px] mx-auto">
+                            Tente ajustar seus filtros ou período de busca para encontrar o que procura.
                           </div>
                         </td>
                       </tr>
@@ -609,10 +649,10 @@ export default function DashboardGeral() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </motion.div>
           </>
         )}
-      </div>
+      </motion.div>
 
       <ServiceRecordDetailsSheet
         open={detailsOpen}

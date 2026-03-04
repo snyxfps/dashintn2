@@ -131,9 +131,31 @@ export const ServicePage: React.FC<ServicePageProps> = ({ serviceName }) => {
     moveStatus,
   } = useServiceData(serviceName);
 
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">("ALL");
-  const [filterOwner, setFilterOwner] = useState("");
+  const storageKey = `filters-${serviceName}`;
+  const [search, setSearch] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${storageKey}-search`);
+      return saved || "";
+    } catch { return ""; }
+  });
+  const [filterStatus, setFilterStatus] = useState<RecordStatus | "ALL">(() => {
+    try {
+      const saved = localStorage.getItem(`${storageKey}-status`);
+      return (saved as any) || "ALL";
+    } catch { return "ALL"; }
+  });
+  const [filterOwner, setFilterOwner] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${storageKey}-owner`);
+      return saved || "";
+    } catch { return ""; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${storageKey}-search`, search);
+    localStorage.setItem(`${storageKey}-status`, filterStatus);
+    localStorage.setItem(`${storageKey}-owner`, filterOwner);
+  }, [search, filterStatus, filterOwner, storageKey]);
 
   const [showChart, setShowChart] = useState(false);
 

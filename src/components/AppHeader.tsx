@@ -16,7 +16,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   title, subtitle, onMenuClick, searchValue, onSearchChange, actions
 }) => {
   return (
-    <header className="h-16 flex items-center gap-4 px-4 lg:px-6 bg-card border-b border-border flex-shrink-0">
+    <header className="h-16 flex items-center gap-4 px-4 lg:px-6 bg-card/70 backdrop-blur-md border-b border-border flex-shrink-0 sticky top-0 z-30">
       {/* Mobile menu toggle */}
       <button
         onClick={onMenuClick}

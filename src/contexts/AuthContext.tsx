@@ -61,7 +61,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("AuthContext: Erro ao recuperar sessão:", error.message);
+          // Se o token de refresh for inválido ou não encontrado, limpamos tudo
+          if (error.message.includes("refresh_token_not_found") || error.message.includes("Invalid Refresh Token")) {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setUserRole(null);
+            return;
+          }
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
 

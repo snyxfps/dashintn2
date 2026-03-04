@@ -10,6 +10,7 @@ import DashboardGeral from "@/pages/DashboardGeral";
 import AuditoriaPage from "@/pages/Auditoria";
 import { ServicePage } from "@/pages/ServicePage";
 import NotFound from "./pages/NotFound";
+import { CommandMenu } from "@/components/CommandMenu";
 
 const queryClient = new QueryClient();
 
@@ -67,8 +68,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <AuthProvider>
+          <CommandMenu />
           <ProtectedRoutes />
         </AuthProvider>
       </BrowserRouter>
