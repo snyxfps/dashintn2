@@ -67,10 +67,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error("AuthContext: Erro ao recuperar sessão:", error.message);
           // Se o token de refresh for inválido ou não encontrado, limpamos tudo
           if (error.message.includes("refresh_token_not_found") || error.message.includes("Invalid Refresh Token")) {
-            await supabase.auth.signOut();
             setSession(null);
             setUser(null);
             setUserRole(null);
+            supabase.auth.signOut().catch(console.error);
             return;
           }
         }
@@ -81,10 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           if (session.user.email && !session.user.email.toLowerCase().endsWith('@apisul.com.br')) {
             console.warn("AuthContext: Acesso bloqueado para e-mail não corporativo:", session.user.email);
-            await supabase.auth.signOut();
             setSession(null);
             setUser(null);
             setUserRole(null);
+            setLoading(false);
+            supabase.auth.signOut().catch(console.error);
             return;
           }
           await fetchRole(session.user.id, session.user);
@@ -108,10 +109,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           if (session.user.email && !session.user.email.toLowerCase().endsWith('@apisul.com.br')) {
             console.warn("AuthContext: Acesso bloqueado (auth state change) para:", session.user.email);
-            await supabase.auth.signOut();
             setSession(null);
             setUser(null);
             setUserRole(null);
+            setLoading(false);
+            supabase.auth.signOut().catch(console.error);
             return;
           }
           await fetchRole(session.user.id, session.user);
