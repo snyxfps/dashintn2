@@ -19,6 +19,12 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email.toLowerCase().endsWith('@apisul.com.br')) {
+      toast.error('Acesso restrito: utilize seu e-mail corporativo (@apisul.com.br).');
+      return;
+    }
+
     setLoading(true);
     try {
       if (mode === 'login') {

@@ -3,6 +3,7 @@ import type { RecordStatus, ServiceRecord } from "@/types";
 import { STATUS_CONFIG } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, Legend } from "recharts";
+import { cn } from "@/lib/utils";
 
 const STATUS_COLORS: Record<RecordStatus, string> = {
   NOVO: "#94a3b8",
@@ -99,8 +100,8 @@ export function ServiceCharts({
 
       const alert =
         s === "FINALIZADO" ? (last7 < threshold.finalizadosMinWeek ? "ruim" : "ok") :
-        s === "CANCELADO" ? (last7 > threshold.canceladosMaxWeek ? "alerta" : "ok") :
-        "ok";
+          s === "CANCELADO" ? (last7 > threshold.canceladosMaxWeek ? "alerta" : "ok") :
+            "ok";
 
       return {
         status: s,
@@ -138,90 +139,130 @@ export function ServiceCharts({
   if (!show) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="corp-card p-5">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-foreground">Distribuição por status</h3>
-          <div className="text-xs text-muted-foreground">Contagem atual + contexto (últimos 7 dias)</div>
+    <div className="space-y-6">
+      <div className="glass-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/5">
+          <div>
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest leading-none">Distribuição por status</h3>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1.5">Análise em tempo real + Variação 7d</p>
+          </div>
+          <div className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-md uppercase tracking-tighter self-start sm:self-center">
+            Consolidado
+          </div>
         </div>
 
         {loading ? (
-          <Skeleton className="h-72 w-full" />
+          <div className="p-6"><Skeleton className="h-72 w-full rounded-2xl" /></div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="overflow-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40">
-                  <tr className="text-xs text-muted-foreground">
-                    <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-3 py-2 text-right">Qtd</th>
-                    <th className="px-3 py-2 text-right">%</th>
-                    <th className="px-3 py-2 text-right">7d</th>
-                    <th className="px-3 py-2 text-right">Δ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statusContextData.map((s) => (
-                    <tr key={s.status} className="border-t">
-                      <td className="px-3 py-2">{s.name}</td>
-                      <td className="px-3 py-2 text-right">{s.count}</td>
-                      <td className="px-3 py-2 text-right">{s.pct.toFixed(0)}%</td>
-                      <td className="px-3 py-2 text-right">{s.last7}</td>
-                      <td className={"px-3 py-2 text-right text-xs " + (s.delta >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                        {s.delta >= 0 ? `+${s.delta}` : s.delta}
-                      </td>
+          <div className="p-6 space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+              <div className="overflow-hidden rounded-2xl border border-white/5 bg-black/5 shadow-inner">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-white/5">
+                      <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-muted-foreground">Qtd</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-muted-foreground">%</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-muted-foreground">Δ 7d</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={statusContextData} layout="vertical" barSize={14}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(220 15% 92%)" />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} width={140} />
-                  <RechartsTooltip
-                    contentStyle={{ borderRadius: 8, fontSize: 11 }}
-                    formatter={(value: any, _name: any, props: any) => {
-                      const pct = props?.payload?.pct;
-                      return [`${value} (${pct?.toFixed?.(0)}%)`, "Qtd"];
-                    }}
-                  />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                    {statusContextData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {statusContextData.map((s) => (
+                      <tr key={s.status} className="hover:bg-white/5 transition-colors group">
+                        <td className="px-4 py-3 font-medium flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                          <span className="text-xs font-bold text-foreground group-hover:text-blue-400 transition-colors">{s.name}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs font-black tabular-nums">{s.count}</td>
+                        <td className="px-4 py-3 text-right text-[10px] font-bold text-muted-foreground">{s.pct.toFixed(0)}%</td>
+                        <td className={cn(
+                          "px-4 py-3 text-right text-[10px] font-black tabular-nums",
+                          s.delta >= 0 ? "text-emerald-500" : "text-rose-500"
+                        )}>
+                          {s.delta >= 0 ? `+${s.delta}` : s.delta}
+                        </td>
+                      </tr>
                     ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="h-[300px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={statusContextData} layout="vertical" barSize={10} margin={{ left: 10, right: 30 }}>
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+                      width={120}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <RechartsTooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      itemStyle={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}
+                    />
+                    <Bar dataKey="count" radius={[0, 10, 10, 0]} animationDuration={1500}>
+                      {statusContextData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} fillOpacity={0.8} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      <div className="corp-card p-5">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-foreground">Throughput (por semana)</h3>
-          <div className="text-xs text-muted-foreground">Finalizado x Cancelado x Devolvido (últimas 12 semanas)</div>
+      <div className="glass-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/5 text-foreground">
+          <div>
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest leading-none">Throughput Semanal</h3>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1.5">Eficiência de Conversão (12 semanas)</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-[9px] font-black uppercase text-muted-foreground">Entregas</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-orange-500" />
+              <span className="text-[9px] font-black uppercase text-muted-foreground">Retornos</span>
+            </div>
+          </div>
         </div>
 
         {loading ? (
-          <Skeleton className="h-72 w-full" />
+          <div className="p-6"><Skeleton className="h-72 w-full rounded-2xl" /></div>
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={throughputWeekly} barSize={18}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 92%)" />
-              <XAxis dataKey="week" tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} />
-              <YAxis tick={{ fontSize: 10, fill: "hsl(220 15% 50%)" }} allowDecimals={false} />
-              <RechartsTooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="FINALIZADO" name="Finalizado" fill={STATUS_COLORS.FINALIZADO} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="CANCELADO" name="Cancelado" fill={STATUS_COLORS.CANCELADO} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="DEVOLVIDO" name="Devolvido" fill={STATUS_COLORS.DEVOLVIDO} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="p-6">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={throughputWeekly} barSize={12} margin={{ top: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="white" opacity={0.05} />
+                <XAxis
+                  dataKey="week"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+                  allowDecimals={false}
+                />
+                <RechartsTooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="FINALIZADO" name="Finalizado" fill={STATUS_COLORS.FINALIZADO} radius={[10, 10, 0, 0]} animationDuration={1800} />
+                <Bar dataKey="DEVOLVIDO" name="Devolvido" fill={STATUS_COLORS.DEVOLVIDO} radius={[10, 10, 0, 0]} animationDuration={1800} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Search } from 'lucide-react';
+import { Menu, Search, Layers } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -16,43 +16,36 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   title, subtitle, onMenuClick, searchValue, onSearchChange, actions
 }) => {
   return (
-    <header className="h-16 flex items-center gap-4 px-4 lg:px-6 bg-card/70 backdrop-blur-md border-b border-border flex-shrink-0 sticky top-0 z-30">
-      {/* Mobile menu toggle */}
+    <header className="h-14 flex items-center gap-4 px-4 lg:px-6 bg-background border-b flex-shrink-0 sticky top-0 z-30">
       <button
         onClick={onMenuClick}
-        className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+        className="lg:hidden p-2 -ml-2 rounded-md hover:bg-muted transition-colors"
       >
         <Menu className="w-5 h-5 text-muted-foreground" />
       </button>
 
-      {/* Title */}
       <div className="flex-1 min-w-0">
-        <h1 className="text-lg font-bold text-foreground truncate" style={{ letterSpacing: '-0.02em' }}>
+        <h1 className="text-sm font-semibold text-foreground truncate">
           {title}
         </h1>
-        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
       </div>
 
-      {/* Search */}
       {onSearchChange && (
-        <div className="hidden sm:flex relative max-w-sm w-full group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-all group-focus-within:text-blue-500 group-focus-within:scale-110" />
+        <div className="hidden sm:flex relative max-w-sm w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar cliente ou serviço..."
+            placeholder="Pesquisar..."
             value={searchValue}
             onChange={e => onSearchChange(e.target.value)}
-            className="pl-10 h-10 text-sm bg-muted/40 border-border/50 transition-all focus:bg-background focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 rounded-xl"
+            className="pl-9 h-9 text-xs"
           />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-border bg-background text-[10px] font-bold text-muted-foreground pointer-events-none group-focus-within:opacity-0 transition-opacity">
-            ⌘ K
-          </div>
         </div>
       )}
 
       <ThemeToggle />
 
-      {/* Actions */}
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
     </header>
   );
 };

@@ -22,7 +22,8 @@ import {
   Cell,
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, CalendarDays, Search, PieChart as LucidePieChart } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Filter, CalendarDays, Search, PieChart as LucidePieChart, Layers, Activity } from "lucide-react";
 import { formatDateOnlyBR } from "@/lib/dateOnly";
 import { ServiceRecordDetailsSheet } from "@/pages/service/components/ServiceRecordDetailsSheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -343,313 +344,231 @@ export default function DashboardGeral() {
             </motion.div>
 
             {/* filtros */}
-            <motion.div variants={itemVariants} className="glass-card p-4 rounded-2xl">
-              <div className="flex flex-wrap items-center gap-3">
-                <Filter className="w-4 h-4 text-muted-foreground" />
+            <div className="bg-card border rounded-lg p-4 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 text-primary">
+                <Filter className="w-4 h-4" />
+                <h3 className="text-sm font-semibold">Filtros</h3>
+              </div>
 
-                <Select value={filterService} onValueChange={setFilterService}>
-                  <SelectTrigger className="h-8 w-52 text-xs bg-background/50 backdrop-blur-sm border-border/50">
-                    <SelectValue placeholder="Serviço" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos os serviços</SelectItem>
-                    {services.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Serviço</Label>
+                  <Select value={filterService} onValueChange={setFilterService}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos os serviços</SelectItem>
+                      {services.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-                  <SelectTrigger className="h-8 w-44 text-xs bg-background/50 backdrop-blur-sm border-border/50">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos os status</SelectItem>
-                    {STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_CONFIG[s].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Status</Label>
+                  <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos os status</SelectItem>
+                      {STATUS_OPTIONS.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {STATUS_CONFIG[s].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <Select value={filterOwner} onValueChange={setFilterOwner}>
-                  <SelectTrigger className="h-8 w-44 text-xs bg-background/50 backdrop-blur-sm border-border/50">
-                    <SelectValue placeholder="Responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos</SelectItem>
-                    {owners.map((o) => (
-                      <SelectItem key={o} value={o}>
-                        {o}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Responsável</Label>
+                  <Select value={filterOwner} onValueChange={setFilterOwner}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos os responsáveis</SelectItem>
+                      {owners.map((o) => (
+                        <SelectItem key={o} value={o}>
+                          {o}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                {/* filtro de data */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-md border border-border/50 px-2 h-8 bg-background/50 backdrop-blur-sm">
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs">De (Data Evento)</Label>
+                  <div className="flex items-center gap-2 border rounded-md px-3 h-9 bg-background">
                     <CalendarDays className="w-4 h-4 text-muted-foreground" />
                     <input
                       type="date"
                       value={filterDateFrom}
                       onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="bg-transparent text-xs outline-none"
-                      aria-label="Data início"
+                      className="bg-transparent outline-none text-sm"
                     />
                   </div>
-
-                  <span className="text-xs text-muted-foreground">até</span>
-
-                  <div className="flex items-center gap-2 rounded-md border border-border/50 px-2 h-8 bg-background/50 backdrop-blur-sm">
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Até (Data Evento)</Label>
+                  <div className="flex items-center gap-2 border rounded-md px-3 h-9 bg-background">
                     <CalendarDays className="w-4 h-4 text-muted-foreground" />
                     <input
                       type="date"
                       value={filterDateTo}
                       onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="bg-transparent text-xs outline-none"
-                      aria-label="Data fim"
+                      className="bg-transparent outline-none text-sm"
                     />
                   </div>
                 </div>
-
-                <div className="ml-auto text-xs text-muted-foreground">{filtered.length} registros</div>
+                <div className="flex-1 text-right text-xs text-muted-foreground mr-2 mb-2">
+                  {filtered.length} registro(s) encontrado(s)
+                </div>
               </div>
-            </motion.div>
+            </div>
 
             {/* 3 gráficos */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 1) Composição de Status (Donut Chart) */}
-              <motion.div variants={itemVariants} className="glass-card p-6 flex flex-col h-[400px] rounded-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none transition-transform group-hover:scale-110 duration-700">
-                  <LucidePieChart size={120} />
-                </div>
-                <div className="mb-6 relative z-10">
-                  <h3 className="text-lg font-bold text-foreground">Composição de Status</h3>
-                  <p className="text-xs text-muted-foreground">Visão percentual do que está em cada etapa agora.</p>
-                </div>
-
-                <div className="flex-1 min-h-0 relative z-10">
+              {/* 1) Composição de Status */}
+              <div className="bg-card border rounded-lg p-6 flex flex-col h-[400px]">
+                <h3 className="text-sm font-semibold mb-6">Composição de Status</h3>
+                <div className="flex-1 min-h-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={statusDist.filter(d => d.count > 0)}
                         cx="50%"
                         cy="50%"
-                        innerRadius={65}
-                        outerRadius={90}
-                        paddingAngle={4}
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
                         dataKey="count"
-                        animationDuration={1200}
-                        animationBegin={200}
                       >
                         {statusDist.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                          <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <RechartsTooltip
-                        contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                      />
-                      <Legend
-                        verticalAlign="bottom"
-                        height={36}
-                        iconType="circle"
-                        formatter={(value) => <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{value}</span>}
-                      />
+                      <RechartsTooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
-                  {/* Center Text */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-10">
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-foreground">{filtered.length}</div>
-                      <div className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">Total</div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* 2) Tendência de Entregas (Throughput) */}
-              <motion.div variants={itemVariants} className="glass-card p-6 h-[400px] rounded-2xl overflow-hidden group">
-                <div className="mb-6">
-                  <h3 className="text-lg font-bold text-foreground">Volume de Conclusão</h3>
-                  <p className="text-xs text-muted-foreground">Evolução de entregas finalizadas x devolvidas nas últimas semanas.</p>
-                </div>
-
-                <ResponsiveContainer width="100%" height="80%">
-                  <AreaChart data={throughputWeekly}>
-                    <defs>
-                      <linearGradient id="colorFinalizado" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={STATUS_COLORS.FINALIZADO} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={STATUS_COLORS.FINALIZADO} stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="colorDevolvido" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={STATUS_COLORS.DEVOLVIDO} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={STATUS_COLORS.DEVOLVIDO} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis
-                      dataKey="week"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
-                      allowDecimals={false}
-                    />
-                    <RechartsTooltip
-                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Legend iconType="rect" />
-                    <Area
-                      type="monotone"
-                      dataKey="FINALIZADO"
-                      name="Finalizados"
-                      stroke={STATUS_COLORS.FINALIZADO}
-                      fillOpacity={1}
-                      fill="url(#colorFinalizado)"
-                      strokeWidth={3}
-                      animationDuration={1500}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="DEVOLVIDO"
-                      name="Devolvidos"
-                      stroke={STATUS_COLORS.DEVOLVIDO}
-                      fillOpacity={1}
-                      fill="url(#colorDevolvido)"
-                      strokeWidth={3}
-                      animationDuration={1500}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </motion.div>
-
-              {/* 3) Análise de Aging (Saúde do Fluxo) */}
-              <motion.div variants={itemVariants} className="glass-card p-6 xl:col-span-2 rounded-2xl overflow-hidden group">
-                <div className="mb-6">
-                  <h3 className="text-lg font-bold text-foreground">Tempo de Permanência (Aging)</h3>
-                  <p className="text-xs text-muted-foreground">Há quanto tempo os cards ativos estão parados. Cards acima de 25 dias exigem atenção.</p>
-                </div>
-
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={agingBuckets} barSize={40}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis
-                      dataKey="bucket"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 11, fontWeight: 700, fill: "hsl(var(--foreground))" }}
-                      label={{ value: 'Dias decorridos', position: 'insideBottom', offset: -5, fontSize: 10, fontWeight: 600, fill: 'hsl(var(--muted-foreground))' }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
-                      allowDecimals={false}
-                    />
-                    <RechartsTooltip
-                      cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
-                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Bar
-                      dataKey="count"
-                      name="Cards Ativos"
-                      radius={[10, 10, 0, 0]}
-                      animationDuration={1200}
-                    >
-                      {agingBuckets.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={
-                            index === 0 ? '#10b981' :
-                              index === 1 ? '#3b82f6' :
-                                index === 2 ? '#f59e0b' : '#ef4444'
-                          }
-                          fillOpacity={0.8}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </motion.div>
-            </div>
-            {/* lista */}
-            <motion.div variants={itemVariants} className="glass-card overflow-hidden rounded-2xl shadow-xl">
-              <div className="px-5 py-4 border-b border-border/50 bg-background/30 backdrop-blur-md flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Últimos Registros</h3>
-                  <div className="text-[10px] text-muted-foreground font-bold uppercase mt-0.5">Visão consolidada filtrada</div>
-                </div>
-                <div className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full uppercase tracking-tighter">
-                  {filtered.length} total
                 </div>
               </div>
 
+              {/* 2) Tendência de Entregas (Throughput) */}
+              <div className="bg-card border rounded-lg p-6 h-[400px]">
+                <h3 className="text-sm font-semibold mb-6">Tendência de Entregas (Semanal)</h3>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={throughputWeekly}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="FINALIZADO"
+                        name="Finalizados"
+                        stroke={STATUS_COLORS.FINALIZADO}
+                        fill={STATUS_COLORS.FINALIZADO}
+                        fillOpacity={0.1}
+                        strokeWidth={2}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="DEVOLVIDO"
+                        name="Devolvidos"
+                        stroke={STATUS_COLORS.DEVOLVIDO}
+                        fill={STATUS_COLORS.DEVOLVIDO}
+                        fillOpacity={0.1}
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 3) Análise de Aging (Saúde do Fluxo) */}
+              <div className="bg-card border rounded-lg p-6 lg:col-span-2">
+                <h3 className="text-sm font-semibold mb-6">Saúde do Fluxo (Aging dos Abertos)</h3>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={agingBuckets}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="bucket" tick={{ fontSize: 10 }} label={{ value: 'Dias no fluxo', position: 'insideBottom', offset: -5, fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <RechartsTooltip />
+                      <Bar dataKey="count" name="Qtd Registros" radius={[4, 4, 0, 0]}>
+                        {agingBuckets.map((entry, index) => {
+                          const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+                          return <Cell key={`cell-${index}`} fill={colors[index]} />;
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* lista */}
+            <div className="bg-card border rounded-lg overflow-hidden shadow-sm mb-8">
+              <div className="px-6 py-4 border-b bg-muted/30">
+                <h3 className="text-sm font-semibold">Últimos Registros</h3>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border/30 bg-muted/20">
-                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-5 py-3">Serviço</th>
-                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3">Cliente</th>
-                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3">Status</th>
-                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3 hidden sm:table-cell">Responsável</th>
-                      <th className="text-left text-[10px] font-black uppercase text-muted-foreground tracking-widest px-3 py-3 hidden md:table-cell">Data Início</th>
+                    <tr className="bg-muted/50 border-b text-left">
+                      <th className="px-6 py-3 font-medium text-muted-foreground whitespace-nowrap">Serviço</th>
+                      <th className="px-6 py-3 font-medium text-muted-foreground whitespace-nowrap">Cliente</th>
+                      <th className="px-6 py-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                      <th className="px-6 py-3 font-medium text-muted-foreground whitespace-nowrap">Responsável</th>
+                      <th className="px-6 py-3 font-medium text-muted-foreground whitespace-nowrap">Início</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/20">
+                  <tbody className="divide-y">
                     {filtered.slice(0, 50).map((r) => (
                       <tr
                         key={r.id}
-                        className="group hover:bg-white/50 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
+                        className="hover:bg-muted/30 cursor-pointer"
                         onClick={() => openDetails(r)}
                       >
-                        <td className="px-5 py-4 text-[10px] font-black text-blue-500/70 uppercase group-hover:text-blue-500 transition-colors">
+                        <td className="px-6 py-4 text-xs font-medium text-muted-foreground">
                           {r.service_name}
                         </td>
-                        <td className="px-3 py-4">
-                          <div className="font-bold text-foreground group-hover:translate-x-1 transition-transform">{r.client_name}</div>
+                        <td className="px-6 py-4 font-semibold">
+                          {r.client_name}
                         </td>
-                        <td className="px-3 py-4">
+                        <td className="px-6 py-4">
                           <StatusBadge status={r.status} />
                         </td>
-                        <td className="px-3 py-4 text-muted-foreground text-xs font-medium hidden sm:table-cell">
-                          {(r.owner || "").trim() || "-"}
+                        <td className="px-6 py-4 text-muted-foreground">
+                          {r.owner}
                         </td>
-                        <td className="px-3 py-4 text-muted-foreground text-xs font-medium hidden md:table-cell">
-                          <div className="flex items-center gap-2">
-                            <CalendarDays className="w-3.5 h-3.5 opacity-40" />
-                            {formatDateOnlyBR(r.start_date)}
-                          </div>
+                        <td className="px-6 py-4 text-muted-foreground tabular-nums">
+                          {formatDateOnlyBR(r.start_date)}
                         </td>
                       </tr>
                     ))}
-
                     {filtered.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-5 py-24 text-center">
-                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/20 mb-4">
-                            <Search className="w-8 h-8 text-muted-foreground/30" />
-                          </div>
-                          <div className="text-sm font-black text-foreground uppercase tracking-widest">
-                            Nenhum registro encontrado
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-2 max-w-[280px] mx-auto">
-                            Tente ajustar seus filtros ou período de busca para encontrar o que procura.
-                          </div>
+                        <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                          Nenhum registro encontrado com estes filtros.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-            </motion.div>
+            </div>
           </>
         )}
       </motion.div>

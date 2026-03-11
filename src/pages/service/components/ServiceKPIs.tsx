@@ -10,75 +10,55 @@ export function ServiceKPIs({ records, loading }: { records: ServiceRecord[]; lo
       value: records.length,
       icon: Users,
       color: "from-blue-500 to-blue-600",
-      accent: "text-blue-100",
-      iconBg: "bg-blue-400/20"
     },
     {
       label: "Em Andamento",
       value: records.filter((r) => r.status === "ANDAMENTO").length,
       icon: Activity,
       color: "from-indigo-500 to-indigo-600",
-      accent: "text-indigo-100",
-      iconBg: "bg-indigo-400/20"
     },
     {
       label: "Finalizados",
       value: records.filter((r) => r.status === "FINALIZADO").length,
       icon: CheckCircle,
       color: "from-emerald-500 to-emerald-600",
-      accent: "text-emerald-100",
-      iconBg: "bg-emerald-400/20"
     },
     {
       label: "Devolvidos",
       value: records.filter((r) => r.status === "DEVOLVIDO").length,
       icon: RotateCcw,
       color: "from-orange-500 to-amber-600",
-      accent: "text-orange-100",
-      iconBg: "bg-orange-400/20"
     },
     {
       label: "Cancelados",
       value: records.filter((r) => r.status === "CANCELADO").length,
       icon: XCircle,
       color: "from-rose-500 to-red-600",
-      accent: "text-rose-100",
-      iconBg: "bg-rose-400/20"
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {kpis.map((k, index) => {
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {kpis.map((k) => {
         const Icon = k.icon;
         return (
           <div
             key={k.label}
-            className={`relative overflow-hidden group p-5 rounded-2xl border border-white/10 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-gradient-to-br ${k.color} text-white anim-fade-up`}
-            style={{ animationDelay: `${index * 100}ms` }}
+            className={`bg-gradient-to-br ${k.color} p-4 rounded-xl text-white shadow-lg border border-white/10`}
           >
-            {/* Background pattern */}
-            <div className="absolute -right-4 -top-4 opacity-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12 text-white">
-              <Icon size={80} strokeWidth={1} />
-            </div>
-
-            <div className="relative z-10 flex flex-col gap-1">
-              <div className={`text-xs font-medium uppercase tracking-wider ${k.accent} opacity-90`}>
-                {k.label}
-              </div>
-
-              <div className="flex items-center justify-between mt-1">
-                {loading ? (
-                  <Skeleton className="h-9 w-20 bg-white/20" />
-                ) : (
-                  <div className="text-3xl font-bold tracking-tight">{k.value}</div>
-                )}
-
-                <div className={`p-2.5 rounded-xl ${k.iconBg} backdrop-blur-sm shadow-inner`}>
-                  <Icon className="h-5 w-5 text-white" />
-                </div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <Icon className="h-5 w-5" />
               </div>
             </div>
+            <div className="text-xs font-medium opacity-80 uppercase tracking-wider">
+              {k.label}
+            </div>
+            {loading ? (
+              <Skeleton className="h-8 w-16 bg-white/20 mt-1" />
+            ) : (
+              <div className="text-3xl font-bold mt-1 tabular-nums">{k.value}</div>
+            )}
           </div>
         );
       })}

@@ -34,6 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     loading,
     signIn: async (email, password) => {
+      if (!email.toLowerCase().endsWith('@apisul.com.br')) {
+        throw new Error('Acesso restrito: apenas e-mails corporativos (@apisul.com.br) são permitidos.');
+      }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
     },

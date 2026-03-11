@@ -45,8 +45,14 @@ export function CommandMenu() {
             }
         };
 
+        const handleOpenEvent = () => setOpen(true);
+        document.addEventListener("open-command-menu", handleOpenEvent);
+
         document.addEventListener("keydown", down);
-        return () => document.removeEventListener("keydown", down);
+        return () => {
+            document.removeEventListener("keydown", down);
+            document.removeEventListener("open-command-menu", handleOpenEvent);
+        };
     }, []);
 
     useEffect(() => {

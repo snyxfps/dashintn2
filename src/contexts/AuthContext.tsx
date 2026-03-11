@@ -79,6 +79,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
 
         if (session?.user) {
+          if (session.user.email && !session.user.email.toLowerCase().endsWith('@apisul.com.br')) {
+            console.warn("AuthContext: Acesso bloqueado para e-mail não corporativo:", session.user.email);
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setUserRole(null);
+            return;
+          }
           await fetchRole(session.user.id, session.user);
         } else {
           setUserRole(null);
@@ -98,6 +106,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         if (session?.user) {
+          if (session.user.email && !session.user.email.toLowerCase().endsWith('@apisul.com.br')) {
+            console.warn("AuthContext: Acesso bloqueado (auth state change) para:", session.user.email);
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setUserRole(null);
+            return;
+          }
           await fetchRole(session.user.id, session.user);
         } else {
           setUserRole(null);
@@ -118,11 +134,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!email.toLowerCase().endsWith('@apisul.com.br')) {
+      return { error: new Error('Acesso restrito: apenas e-mails corporativos (@apisul.com.br) são permitidos.') };
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    if (!email.toLowerCase().endsWith('@apisul.com.br')) {
+      return { error: new Error('Acesso restrito: apenas e-mails corporativos (@apisul.com.br) são permitidos.') };
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,

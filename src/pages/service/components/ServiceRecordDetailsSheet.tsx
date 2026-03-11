@@ -3,13 +3,33 @@ import type { ServiceRecord } from "@/types";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  User,
+  Calendar,
+  Ticket,
+  Layers,
+  Clock,
+  CheckCircle2,
+  RotateCcw,
+  MessageSquare,
+  Edit2,
+  Trash2,
+  Briefcase
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
-function Field({ label, value }: { label: string; value?: React.ReactNode }) {
+function Field({ label, value, icon: Icon, className }: { label: string; value?: React.ReactNode; icon: any; className?: string }) {
   if (value === undefined || value === null || value === "") return null;
   return (
-    <div className="space-y-1">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-sm">{value}</div>
+    <div className={cn("flex items-start gap-3 p-3 rounded-2xl bg-white/5 border border-white/5 group hover:bg-white/10 transition-colors", className)}>
+      <div className="mt-0.5 p-2 rounded-xl bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
+        <Icon className="w-4 h-4" />
+      </div>
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground mb-0.5">{label}</div>
+        <div className="text-sm font-bold text-foreground truncate">{value}</div>
+      </div>
     </div>
   );
 }
@@ -38,91 +58,90 @@ export function ServiceRecordDetailsSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center justify-between gap-3">
-            <span className="truncate">{record?.client_name ?? "Detalhes"}</span>
-            {record ? <StatusBadge status={record.status} /> : null}
-          </SheetTitle>
+        <SheetHeader className="mb-6">
+          <div className="flex items-center justify-between gap-4">
+            <SheetTitle className="text-xl font-bold truncate">
+              {record?.client_name ?? "Detalhes do Registro"}
+            </SheetTitle>
+            {record && <StatusBadge status={record.status} />}
+          </div>
         </SheetHeader>
 
         {record ? (
-          <div className="mt-5 space-y-6">
-            {/* Ações (admin) */}
-            {isAdmin ? (
-              <div className="flex gap-2">
-                <Button onClick={() => onEdit(record)}>Editar</Button>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">ID do Registro</span>
+                <p className="text-sm font-mono bg-muted p-2 rounded truncate">{record.id}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Responsável</span>
+                <p className="text-sm border p-2 rounded">{record.owner}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Ticket Agidesk</span>
+                <p className="text-sm border p-2 rounded">{record.agidesk_ticket || "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Tipo de Integração</span>
+                <p className="text-sm border p-2 rounded">{record.integration_type || "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Data de Início</span>
+                <p className="text-sm border p-2 rounded">{record.start_date || "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Comercial</span>
+                <p className="text-sm border p-2 rounded">{record.commercial || "—"}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase">Cronograma Adicional</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-muted-foreground">Data Cadastro</span>
+                  <p className="text-sm border p-2 rounded">{record.cadastro_date || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-muted-foreground">Reunião Operacional</span>
+                  <p className="text-sm border p-2 rounded">{record.meeting_datetime || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-muted-foreground">Conclusão</span>
+                  <p className="text-sm border p-2 rounded">{record.end_date || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-muted-foreground">Devolução</span>
+                  <p className="text-sm border p-2 rounded">{record.devolucao_date || "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase">Observações</span>
+              <div className="text-sm border p-3 rounded-md bg-muted/20 min-h-[100px] whitespace-pre-wrap">
+                {record.notes || "Sem observações."}
+              </div>
+            </div>
+
+            {isAdmin && (
+              <div className="flex gap-2 pt-6 border-t mt-8">
+                <Button className="flex-1" onClick={() => onEdit(record)}>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Editar
+                </Button>
                 <Button variant="destructive" onClick={() => onAskDelete(record.id)}>
+                  <Trash2 className="w-4 h-4 mr-2" />
                   Excluir
                 </Button>
               </div>
-            ) : null}
-
-            {/* ===== RESUMO ===== */}
-            {/* REUNIÃO: remove o bloco de cima pra não ficar em branco */}
-            {!isReuniao ? (
-              <div className="rounded-xl border p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Responsável" value={record.owner} />
-
-                  {/* NOVO: NÃO mostrar data de início (redundante) */}
-                  {/* ANDAMENTO e demais: mostrar data de início */}
-                  {!isNovo ? <Field label="Data de início" value={record.start_date} /> : null}
-
-                  {/* Em ANDAMENTO você pediu para ficar “clean”: só responsável + data início + observações */}
-                  {!isAndamento ? (
-                    <>
-                      <Field label="Ticket Agidesk" value={record.agidesk_ticket} />
-                      <Field label="Tipo de Integração" value={record.integration_type} />
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {/* ===== BLOCO DATAS ===== */}
-            {/* ANDAMENTO: não mostrar o bloco Datas */}
-            {!isAndamento ? (
-              <div className="rounded-xl border p-4 space-y-3">
-                <div className="text-sm font-semibold">{isReuniao ? "Data" : "Datas"}</div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* REUNIÃO: só reunião */}
-                  {isReuniao ? (
-                    <Field label="Reunião" value={record.meeting_datetime} />
-                  ) : (
-                    <>
-                      {/* NOVO: só Cadastro (sem redundância) */}
-                      {isNovo ? <Field label="Cadastro" value={record.cadastro_date} /> : null}
-
-                      {/* Reunião pode existir em outros status também */}
-                      {!isNovo ? <Field label="Reunião" value={record.meeting_datetime} /> : null}
-
-                      {/* Conclusão só em FINALIZADO/CANCELADO */}
-                      {isFinalizadoOuCancelado ? <Field label="Conclusão" value={record.end_date} /> : null}
-
-                      {/* Devolução + Comercial só em DEVOLVIDO */}
-                      {isDevolvido ? (
-                        <>
-                          <Field label="Devolução" value={record.devolucao_date} />
-                          <Field label="Comercial" value={record.commercial} />
-                        </>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            {/* ===== OBSERVAÇÕES ===== */}
-            <div className="rounded-xl border p-4 space-y-2">
-              <div className="text-sm font-semibold">Observações</div>
-              <div className="text-sm whitespace-pre-wrap text-muted-foreground">
-                {record.notes?.trim() ? record.notes : "—"}
-              </div>
-            </div>
+            )}
           </div>
         ) : (
-          <div className="mt-6 text-sm text-muted-foreground">Selecione um card para ver os detalhes.</div>
+          <div className="py-12 text-center text-muted-foreground">
+            Selecione um registro para ver os detalhes.
+          </div>
         )}
       </SheetContent>
     </Sheet>
